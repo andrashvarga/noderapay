@@ -53,6 +53,7 @@ object Api {
     }
 
     suspend fun transaction(id: Int) = obj("GET", "/transaction/$id")
+    suspend fun live(id: Int) = obj("GET", "/transaction/$id/live")
     suspend fun history(id: Int) = arr("/transaction/$id/history")
     suspend fun allTransactions() = obj("GET", "/transactions?state=all&page=1&per_page=50")
     suspend fun appealsAll() = obj("GET", "/appeals?status=all&per_page=50")

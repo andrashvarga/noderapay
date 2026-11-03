@@ -47,7 +47,6 @@ private enum class Tab(val ru: String, val en: String, val icon: androidx.compos
     Orders("Заявки", "Orders", Icons.Rounded.Receipt),
     Withdrawals("Выводы", "Withdraw", Icons.Rounded.AccountBalanceWallet),
     Qr("QR", "QR", Icons.Rounded.QrCode2),
-    Link("Ссылка", "Link", Icons.Rounded.Link),
     Settings("Настройки", "Settings", Icons.Rounded.Settings),
 }
 
@@ -96,8 +95,7 @@ private fun MainShell() {
             when (tab) {
                 Tab.Orders -> OrdersScreen()
                 Tab.Withdrawals -> WithdrawalsScreen()
-                Tab.Qr -> CheckoutScreen("qr")
-                Tab.Link -> CheckoutScreen("link")
+                Tab.Qr -> CheckoutScreen()
                 Tab.Settings -> SettingsScreen { }
             }
         }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,13 @@ fun WithdrawalsScreen() {
     val currency = balance.data?.optString("currency").orEmpty()
     val amount = parseAmount(amountText)
 
+    AutoRefresh(8000) { balance.reload(true); wallets.reload(true); history.reload(true) }
+    var refreshing by remember { mutableStateOf(false) }
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { scope.launch { refreshing = true; balance.reload(); wallets.reload(); history.reload(); kotlinx.coroutines.delay(700); refreshing = false } },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Title(tr("Выводы", "Withdrawals"))
         ErrorNote(balance.error ?: wallets.error ?: history.error)
@@ -68,7 +76,7 @@ fun WithdrawalsScreen() {
         if (ws != null && ws.isEmpty()) Card { Muted(tr("Сохранённых кошельков нет. Добавьте адрес USDT (TRC-20 или BEP-20).", "No saved wallets. Add a USDT address (TRC-20 or BEP-20).")) }
         ws?.forEach { w ->
             val on = walletId == w.getString("id")
-            Card(onClick = { walletId = w.getString("id") }, modifier = Modifier.background(if (on) Accent.copy(alpha = .08f) else pal.surface)) {
+            Card(onClick = { walletId = w.getString("id") }, tint = if (on) Accent else null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     IconBadge(Icons.Rounded.AccountBalanceWallet)
                     Column(Modifier.weight(1f)) {
@@ -119,6 +127,7 @@ fun WithdrawalsScreen() {
                 }
             }
         }
+    }
     }
 
     if (addWallet) AddWalletDialog({ addWallet = false }) { id -> addWallet = false; walletId = id; tick++ }

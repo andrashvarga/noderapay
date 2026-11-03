@@ -93,7 +93,7 @@ fun AppLogo(size: Int = 32, modifier: Modifier = Modifier) {
 }
 
 fun qrBitmap(text: String, size: Int = 720): Bitmap {
-    val m = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, mapOf(EncodeHintType.MARGIN to 1, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M))
+    val m = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, mapOf(EncodeHintType.MARGIN to 1, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H))
     val px = IntArray(size * size) { if (m[it % size, it / size]) 0xFF10121C.toInt() else 0xFFFFFFFF.toInt() }
     return Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
 }
@@ -103,6 +103,18 @@ fun QrView(link: String, modifier: Modifier = Modifier) {
     val img = remember(link) { qrBitmap(link).asImageBitmap() }
     Box(modifier.clip(RoundedCornerShape(20.dp)).background(Color.White).padding(14.dp)) {
         Image(img, tr("QR-код для оплаты", "Payment QR code"), Modifier.fillMaxWidth().aspectRatio(1f))
+    }
+}
+
+/** QR с логотипом по центру: выбранный метод или логотип приложения (уровень коррекции H переживает перекрытие). */
+@Composable
+fun QrWithLogo(link: String, logo: String?, bg: String?, cover: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        QrView(link, Modifier.fillMaxWidth())
+        Box(Modifier.fillMaxWidth(0.22f).aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(Color.White).padding(4.dp), contentAlignment = Alignment.Center) {
+            if (logo != null) MethodLogo(logo, Modifier.fillMaxSize(), radius = 10, pad = 3, bg = bg, cover = cover)
+            else Image(painterResource(R.drawable.logo_mark), null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
+        }
     }
 }
 
@@ -162,13 +174,50 @@ class Loader<T>(private val scope: CoroutineScope, private val fetch: suspend ()
     var data by mutableStateOf<T?>(null)
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
-    fun reload() {
+    fun reload(silent: Boolean = false) {
         scope.launch {
-            loading = true; error = null
-            try { data = fetch() } catch (e: ApiException) { error = e.message } catch (e: Exception) { error = e.message }
-            loading = false
+            if (!silent) { loading = true; error = null }
+            try { data = fetch(); error = null } catch (e: ApiException) { if (!silent) error = e.message } catch (e: Exception) { if (!silent) error = e.message }
+            if (!silent) loading = false
         }
     }
+}
+
+/** Тихое автообновление раздела: раз в ms миллисекунд, пока экран на виду. */
+@Composable
+fun AutoRefresh(ms: Long, block: () -> Unit) {
+    val b by rememberUpdatedState(block)
+    LaunchedEffect(ms) { while (true) { kotlinx.coroutines.delay(ms); b() } }
+}
+
+/** Секундный «тик» для таймеров. */
+@Composable
+fun rememberNow(): Long {
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); now = System.currentTimeMillis() } }
+    return now
+}
+
+fun parseIsoMs(s: String?): Long? = if (s.isNullOrBlank() || s == "null") null else runCatching { java.time.Instant.parse(s).toEpochMilli() }.getOrNull()
+
+fun clock(ms: Long): String { val s = (ms / 1000).coerceAtLeast(0); return String.format(Locale.US, "%02d:%02d", s / 60, s % 60) }
+
+/** Метод подходит под сумму по диапазонам и лимиту мерчанта (старый сервер без этих полей: подходит всегда). */
+fun JSONObject.fitsAmount(a: Double): Boolean {
+    val r = optJSONArray("ranges")
+    if (r != null && r.length() > 0) {
+        var ok = false
+        for (i in 0 until r.length()) {
+            val o = r.getJSONObject(i)
+            val f = if (o.isNull("from")) null else o.optDouble("from")
+            val t = if (o.isNull("to")) null else o.optDouble("to")
+            if ((f == null || a >= f) && (t == null || a <= t)) ok = true
+        }
+        if (!ok) return false
+    }
+    val l = optJSONObject("limit")
+    if (l != null && (a < l.optDouble("min") || a > l.optDouble("max"))) return false
+    return true
 }
 
 @Composable

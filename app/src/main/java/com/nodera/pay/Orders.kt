@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,44 +35,59 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-/** «Заявки»: активные транзакции, архив и диспуты. */
+/** «Заявки»: активные транзакции, архив и диспуты; вкладки листаются свайпом, списки обновляются сами. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen() {
-    var tab by rememberSaveable { mutableStateOf("active") }
+    val kinds = listOf("active", "archive", "appeals")
+    val pager = rememberPagerState { kinds.size }
+    val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf<JSONObject?>(null) }
     var toCancel by remember { mutableStateOf<JSONObject?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
-    val list = rememberLoader(tab to refreshKey) {
-        if (tab == "appeals") Api.appeals().getJSONArray("rows").objects() else Api.transactions(tab, 1).getJSONArray("rows").objects()
-    }
     val balance = rememberLoader(Store.apiKey) { Api.balance() }
     val currency = balance.data?.optString("currency").orEmpty()
+    val names = listOf(tr("Активные", "Active"), tr("Архив", "Archive"), tr("Диспуты", "Disputes"))
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Title(tr("Заявки", "Orders"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(tr("Активные", "Active"), tab == "active") { tab = "active" }
-                Chip(tr("Архив", "Archive"), tab == "archive") { tab = "archive" }
-                Chip(tr("Диспуты", "Disputes"), tab == "appeals") { tab = "appeals" }
+                names.forEachIndexed { i, n -> Chip(n, pager.currentPage == i) { scope.launch { pager.animateScrollToPage(i) } } }
             }
         }
-        PullToRefreshBox(isRefreshing = list.loading, onRefresh = { list.reload() }, modifier = Modifier.fillMaxSize()) {
-            val rows = list.data
-            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (list.error != null) item { ErrorNote(list.error) }
-                if (rows != null && rows.isEmpty()) item {
-                    Card { Muted(when (tab) { "active" -> tr("Активных заявок нет.", "No active orders."); "archive" -> tr("Архив пуст.", "Archive is empty."); else -> tr("Диспутов нет.", "No disputes.") }) }
-                }
-                items(rows ?: emptyList()) { r ->
-                    if (tab == "appeals") AppealRow(r) else TxRow(r, currency, if (canCancel(r)) ({ toCancel = r }) else null) { open = r }
-                }
-            }
+        HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
+            OrdersPage(kinds[page], currency, refreshKey, onOpen = { open = it }, onCancel = { toCancel = it })
         }
     }
     open?.let { TxDetail(it, currency, onClose = { open = null }, onChanged = { refreshKey++ }) }
     toCancel?.let { CancelConfirm(it, onClose = { toCancel = null }) { toCancel = null; refreshKey++ } }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OrdersPage(kind: String, currency: String, refreshKey: Int, onOpen: (JSONObject) -> Unit, onCancel: (JSONObject) -> Unit) {
+    val list = rememberLoader(kind to refreshKey) {
+        if (kind == "appeals") Api.appeals().getJSONArray("rows").objects() else Api.transactions(kind, 1).getJSONArray("rows").objects()
+    }
+    // Статусы должны быть актуальными: активные обновляем каждые 5 секунд, остальное реже.
+    AutoRefresh(if (kind == "active") 5000 else 10000) { list.reload(true) }
+    PullToRefreshBox(isRefreshing = list.loading, onRefresh = { list.reload() }, modifier = Modifier.fillMaxSize()) {
+        val rows = list.data
+        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+            if (list.error != null) item { ErrorNote(list.error) }
+            if (rows != null && rows.isEmpty()) item {
+                when (kind) {
+                    "archive" -> Card { Muted(tr("Архив пуст.", "Archive is empty.")) }
+                    "active" -> Tumbleweed(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section."))
+                    else -> Tumbleweed(tr("Диспутов нет", "No disputes"), tr("Тишина и покой. Споров нет.", "Quiet and calm. No disputes."))
+                }
+            }
+            items(rows ?: emptyList()) { r ->
+                if (kind == "appeals") AppealRow(r) else TxRow(r, currency, if (canCancel(r)) ({ onCancel(r) }) else null) { onOpen(r) }
+            }
+        }
+    }
 }
 
 /** Отменить можно заявку, которая еще ждет оплаты и без чека (на проверке отмена недоступна). */
@@ -102,7 +119,7 @@ private fun CancelConfirm(r: JSONObject, onClose: () -> Unit, onDone: () -> Unit
 @Composable
 private fun TxRow(r: JSONObject, currency: String, onCancel: (() -> Unit)?, onClick: () -> Unit) {
     val (label, color) = statusLabel(r.optString("status"))
-    Card(onClick = onClick) {
+    Card(onClick = onClick, tint = color) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(48.dp), radius = 14, pad = 5, bg = r.optStr("methodBg"), cover = r.optBoolean("methodCover"))
             Column(Modifier.weight(1f)) {
@@ -128,7 +145,7 @@ private fun AppealRow(r: JSONObject) {
         "canceled" -> tr("Отменён", "Canceled") to Bad
         else -> tr("В работе", "In progress") to Warn
     }
-    Card {
+    Card(tint = color) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.Gavel, color)
             Column(Modifier.weight(1f)) {

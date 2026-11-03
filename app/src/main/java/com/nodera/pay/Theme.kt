@@ -90,10 +90,14 @@ fun Spinner(size: Dp = 32.dp, color: Color = Accent) {
     CircularProgressIndicator(Modifier.size(size), color = color, strokeWidth = (size.value / 9f).coerceAtLeast(2.5f).dp, trackColor = color.copy(alpha = .18f))
 }
 
+/** Карточка; tint окрашивает заливку и обводку в цвет состояния (успех, отмена, ожидание). */
 @Composable
-fun Card(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+fun Card(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, tint: Color? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(24.dp)
-    val base = modifier.fillMaxWidth().raised(24.dp, 1.dp).clip(shape)
+    val fill = tint?.let { it.copy(alpha = if (pal.dark) .16f else .10f).compositeOver(pal.surface) }
+    var base = modifier.fillMaxWidth().raised(24.dp, 1.dp, fill = fill, outline = tint == null)
+    if (tint != null) base = base.border(1.5.dp, tint.copy(alpha = .6f), shape)
+    base = base.clip(shape)
     Column(if (onClick != null) base.clickable(onClick = onClick).padding(18.dp) else base.padding(18.dp), content = content)
 }
 

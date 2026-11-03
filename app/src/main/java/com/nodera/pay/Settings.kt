@@ -5,6 +5,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -73,16 +77,37 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
 
         Section(tr("Оформление", "Appearance")) {
             Muted(tr("Тема", "Theme"))
-            Choice(listOf("system" to tr("Системная", "System"), "light" to tr("Светлая", "Light"), "dark" to tr("Тёмная", "Dark")), Store.theme) { Store.applyTheme(it) }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
+            PreviewRow(
+                listOf(
+                    PreviewItem("system", tr("Системная", "System")) { MiniScreen(LightPal, DarkPal) },
+                    PreviewItem("light", tr("Светлая", "Light")) { MiniScreen(LightPal, null) },
+                    PreviewItem("dark", tr("Тёмная", "Dark")) { MiniScreen(DarkPal, null) },
+                ), Store.theme,
+            ) { Store.applyTheme(it) }
+            Spacer(Modifier.height(16.dp))
             Muted(tr("Язык", "Language"))
+            Spacer(Modifier.height(8.dp))
             Choice(listOf("ru" to "Русский", "en" to "English"), Store.lang) { Store.applyLang(it) }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Muted(tr("Иконка приложения", "App icon"))
-            Choice(listOf("dark" to tr("Тёмная", "Dark"), "light" to tr("Светлая", "Light")), Store.icon) { Store.applyIcon(it); toast(ctx, tr("Иконка сменится на экране приложений через несколько секунд", "The icon updates on the launcher in a few seconds")) }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
+            PreviewRow(
+                listOf(
+                    PreviewItem("dark", tr("Тёмная", "Dark")) { IconPreview(Color(0xFF0B0D18)) },
+                    PreviewItem("light", tr("Светлая", "Light")) { IconPreview(Color(0xFFF3F4FA)) },
+                ), Store.icon,
+            ) { Store.applyIcon(it); toast(ctx, tr("Иконка сменится на экране приложений через несколько секунд", "The icon updates on the launcher in a few seconds")) }
+            Spacer(Modifier.height(16.dp))
             Muted(tr("Логотип слева вверху", "Top-left logo"))
-            Choice(listOf("nodera" to "Nodera", "none" to tr("Без логотипа", "None"), "custom" to tr("Свой", "Custom")), Store.logoMode) {
+            Spacer(Modifier.height(8.dp))
+            PreviewRow(
+                listOf(
+                    PreviewItem("nodera", "Nodera") { LogoPreview("nodera") },
+                    PreviewItem("none", tr("Без логотипа", "None")) { LogoPreview("none") },
+                    PreviewItem("custom", tr("Свой", "Custom")) { LogoPreview("custom") },
+                ), Store.logoMode,
+            ) {
                 if (it == "custom" && !Store.logoFile.exists()) logoPicker.launch("image/*") else Store.applyLogoMode(it)
             }
             if (Store.logoMode == "custom") { Spacer(Modifier.height(8.dp)); SoftButton(tr("Загрузить другой логотип", "Upload another logo"), icon = Icons.Rounded.Upload) { logoPicker.launch("image/*") } }
@@ -118,7 +143,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             }
         }
 
-        Muted("Nodera Pay 1.2.0")
+        Muted("Nodera Pay 1.5.0")
         Spacer(Modifier.height(8.dp))
     }
 
@@ -129,4 +154,87 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
         confirmButton = { TextButton({ confirmDelete = false; Store.deleteKeys(); syncWatcher(ctx); onDisconnected() }) { Text(tr("Удалить", "Delete"), color = Bad) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text(tr("Отмена", "Cancel")) } },
     )
+}
+
+private class PreviewItem(val key: String, val label: String, val preview: @Composable () -> Unit)
+
+/** Ряд плиток-превью: выбранная обведена акцентом, под ней подпись. */
+@Composable
+private fun PreviewRow(items: List<PreviewItem>, value: String, onPick: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items.forEach { it0 ->
+            val on = value == it0.key
+            val shape = RoundedCornerShape(18.dp)
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.fillMaxWidth().height(116.dp).clip(shape).border(if (on) 2.5.dp else 1.dp, if (on) Accent else pal.line, shape)
+                        .clickable { onPick(it0.key) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    it0.preview()
+                    if (on) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Accent), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(it0.label, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) Accent else pal.text, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Мини-экран приложения в палитре; с двумя палитрами показывает половинки (системная тема). */
+@Composable
+private fun MiniScreen(left: Pal, right: Pal?) {
+    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        fun draw(p: Pal, clipLeft: Float, clipRight: Float) {
+            clipRect(clipLeft * size.width, 0f, clipRight * size.width, size.height) {
+                drawRect(p.bg)
+                val u = size.width / 100f
+                drawCircle(Accent, 5 * u, androidx.compose.ui.geometry.Offset(14 * u, 12 * u))
+                drawRoundRect(p.muted.copy(alpha = .45f), androidx.compose.ui.geometry.Offset(24 * u, 9 * u), androidx.compose.ui.geometry.Size(30 * u, 6 * u), androidx.compose.ui.geometry.CornerRadius(3 * u))
+                for (i in 0..1) {
+                    val y = (26 + i * 26) * u
+                    drawRoundRect(p.surface, androidx.compose.ui.geometry.Offset(8 * u, y), androidx.compose.ui.geometry.Size(84 * u, 22 * u), androidx.compose.ui.geometry.CornerRadius(6 * u))
+                    drawRoundRect(p.line, androidx.compose.ui.geometry.Offset(8 * u, y), androidx.compose.ui.geometry.Size(84 * u, 22 * u), androidx.compose.ui.geometry.CornerRadius(6 * u), style = androidx.compose.ui.graphics.drawscope.Stroke(1f))
+                    drawRoundRect(p.muted.copy(alpha = .5f), androidx.compose.ui.geometry.Offset(13 * u, y + 6 * u), androidx.compose.ui.geometry.Size(34 * u, 4 * u), androidx.compose.ui.geometry.CornerRadius(2 * u))
+                    drawRoundRect(if (i == 0) Ok else Warn, androidx.compose.ui.geometry.Offset(66 * u, y + 7 * u), androidx.compose.ui.geometry.Size(20 * u, 7 * u), androidx.compose.ui.geometry.CornerRadius(4 * u))
+                }
+                drawRect(p.surface, androidx.compose.ui.geometry.Offset(0f, size.height - 18 * u), androidx.compose.ui.geometry.Size(size.width, 18 * u))
+                for (i in 0..3) drawCircle(if (i == 2) Accent else p.muted.copy(alpha = .5f), 3 * u, androidx.compose.ui.geometry.Offset((14 + i * 24) * u, size.height - 9 * u))
+            }
+        }
+        if (right == null) draw(left, 0f, 1f) else { draw(left, 0f, .5f); draw(right, .5f, 1f) }
+    }
+}
+
+/** Иконка приложения на выбранном фоне, как на экране приложений. */
+@Composable
+private fun IconPreview(bg: Color) {
+    Box(Modifier.fillMaxSize().background(pal.surface2), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(64.dp).shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color.Black.copy(alpha = .3f), spotColor = Color.Black.copy(alpha = .35f)).clip(RoundedCornerShape(18.dp)).background(bg),
+            contentAlignment = Alignment.Center,
+        ) { androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_fg_mark), null, Modifier.size(54.dp)) }
+    }
+}
+
+/** Шапка приложения с выбранным вариантом логотипа. */
+@Composable
+private fun LogoPreview(kind: String) {
+    Box(Modifier.fillMaxSize().background(pal.bg), contentAlignment = Alignment.TopStart) {
+        Row(Modifier.fillMaxWidth().padding(10.dp, 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            when (kind) {
+                "nodera" -> androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_mark), null, Modifier.size(24.dp))
+                "custom" -> {
+                    val bmp = remember(Store.logoVersion) { runCatching { BitmapFactory.decodeFile(Store.logoFile.path)?.asImageBitmap() }.getOrNull() }
+                    if (bmp != null) androidx.compose.foundation.Image(bmp, null, Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)))
+                    else Icon(Icons.Rounded.AddPhotoAlternate, null, tint = Accent, modifier = Modifier.size(24.dp))
+                }
+                else -> {}
+            }
+            Box(Modifier.height(7.dp).width(if (kind == "none") 56.dp else 34.dp).clip(RoundedCornerShape(4.dp)).background(pal.muted.copy(alpha = .5f)))
+        }
+        Box(Modifier.align(Alignment.BottomCenter).padding(10.dp).fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(pal.surface))
+    }
 }

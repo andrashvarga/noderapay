@@ -40,15 +40,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 
-private class Slide(val icon: ImageVector, val ru: String, val en: String, val ruText: String, val enText: String, val target: Int)
+private class Slide(val icon: ImageVector, val ru: String, val en: String, val ruText: String, val enText: String, val target: Int, val mock: Int)
 
 private val slides = listOf(
-    Slide(Icons.Rounded.Key, "Подключите ключи", "Connect your keys", "Введите адрес сервера, api_key и api_secret_key из кабинета Nodera. Без них терминал не работает.", "Enter the server address, api_key and api_secret_key from your Nodera account. The terminal does not work without them.", 4),
-    Slide(Icons.Rounded.QrCode2, "Принимайте по QR", "Accept by QR", "Введите сумму, выберите метод — приложение создаст заявку и покажет QR. Клиент сканирует и попадает на платёжную страницу.", "Enter the amount, pick a method — the app creates an order and shows a QR. The customer scans it and lands on the payment page.", 2),
-    Slide(Icons.Rounded.Link, "Ссылка на оплату", "Payment link", "Отправьте ссылку клиенту удалённо. Оставьте все методы на выбор клиента или отметьте нужные галочками.", "Send the link remotely. Let the customer choose any method or tick the ones you allow.", 3),
-    Slide(Icons.Rounded.Storefront, "Услуги и товары", "Services", "Сохраните услуги с готовой суммой, например «Ремонт ПК — 1000». Покажите карточку клиенту и создайте QR или ссылку.", "Save services with preset prices, e.g. “PC repair — 1000”. Show the card to the customer and create a QR or a link.", 2),
-    Slide(Icons.Rounded.Receipt, "Заявки и диспуты", "Orders and disputes", "Следите за статусом активных заявок и архивом. Если клиент оплатил, а платёж не подтверждён — откройте диспут и приложите чек.", "Track active orders and the archive. If the customer paid but it is not confirmed — open a dispute and attach the receipt.", 0),
-    Slide(Icons.Rounded.AccountBalanceWallet, "Вывод в USDT", "USDT withdrawals", "Сохраните кошелёк TRC-20 или BEP-20 и выводите баланс целиком или частью.", "Save a TRC-20 or BEP-20 wallet and withdraw all of your balance or part of it.", 1),
+    Slide(Icons.Rounded.Key, "Подключите ключи", "Connect your keys", "Введите адрес сервера, api_key и api_secret_key из кабинета Nodera. Без них терминал не работает.", "Enter the server address, api_key and api_secret_key from your Nodera account. The terminal does not work without them.", 3, 0),
+    Slide(Icons.Rounded.QrCode2, "QR и ссылка в одном", "QR and link in one", "Введите сумму, отметьте методы: они сами скрываются, если сумма вне лимитов. Заявка покажет QR с логотипом, таймер и кнопку «Поделиться ссылкой».", "Enter the amount and tick the methods: they hide themselves if the amount is outside their limits. The order shows a QR with a logo, a timer and a “Share link” button.", 2, 1),
+    Slide(Icons.Rounded.Storefront, "Услуги и товары", "Services", "Сохраните услуги с готовой суммой, например «Ремонт ПК — 1000». Покажите карточку клиенту и создайте заявку.", "Save services with preset prices, e.g. “PC repair — 1000”. Show the card to the customer and create an order.", 2, 3),
+    Slide(Icons.Rounded.Receipt, "Заявки и диспуты", "Orders and disputes", "Листайте вкладки свайпом, тяните вниз для обновления: статусы обновляются сами. Если клиент оплатил, а платёж не подтверждён — откройте диспут и приложите чек.", "Swipe between tabs and pull down to refresh: statuses update by themselves. If the customer paid but it is not confirmed — open a dispute and attach the receipt.", 0, 4),
+    Slide(Icons.Rounded.AccountBalanceWallet, "Вывод в USDT", "USDT withdrawals", "Сохраните кошелёк TRC-20 или BEP-20 и выводите баланс целиком или частью.", "Save a TRC-20 or BEP-20 wallet and withdraw all of your balance or part of it.", 1, 5),
 )
 
 private const val SLIDE_MS = 5500
@@ -92,7 +91,7 @@ fun OnboardingDialog(onClose: () -> Unit) {
                     pager, Modifier.weight(1f).fillMaxWidth().pointerInput(Unit) {
                         detectTapGestures(onPress = { paused = true; tryAwaitRelease(); paused = false })
                     },
-                ) { i -> SlideView(slides[i], pager.currentPage == i, i) }
+                ) { i -> SlideView(slides[i], pager.currentPage == i, slides[i].mock) }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (paused) tr("Пауза", "Paused") else tr("Удерживайте для паузы", "Hold to pause"), color = pal.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     val last = pager.currentPage == slides.size - 1
@@ -122,13 +121,13 @@ private fun SlideView(s: Slide, active: Boolean, index: Int) {
     }
 }
 
-private val navIcons = listOf(Icons.Rounded.Receipt, Icons.Rounded.AccountBalanceWallet, Icons.Rounded.QrCode2, Icons.Rounded.Link, Icons.Rounded.Settings)
+private val navIcons = listOf(Icons.Rounded.Receipt, Icons.Rounded.AccountBalanceWallet, Icons.Rounded.QrCode2, Icons.Rounded.Settings)
 
 @Composable
 private fun MockPhone(index: Int, target: Int, p: Float) {
     val W = 232; val H = 300
     // Палец: 0–.2 подъезжает к вкладке, .2–.35 нажатие, .35–.6 едет к элементу на экране, .6–.75 второе нажатие.
-    val navX = 23f + 46f * target - 11f
+    val navX = 29f + 58f * target - 11f
     val navY = H - 30f
     val inX = 116f; val inY = when (index) { 0 -> 146f; 1 -> 190f; 2 -> 180f; 3 -> 176f; 4 -> 112f; else -> 190f }
     val fx = when { p < 0.2f -> lerp(190f, navX, p / 0.2f); p < 0.35f -> navX; p < 0.6f -> lerp(navX, inX, (p - 0.35f) / 0.25f); else -> inX }

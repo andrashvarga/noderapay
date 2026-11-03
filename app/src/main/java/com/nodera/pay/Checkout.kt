@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,92 +28,138 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 /**
- * Экран «QR» (mode = "qr") и «Ссылка на оплату» (mode = "link"): сумма или услуга → метод(ы) → заявка на депозит → QR/ссылка.
- * QR и ссылка ведут на платежную страницу Nodera; заявка создается в кабинете мерчанта как обычный депозит.
+ * Раздел «QR»: QR и ссылка на оплату — одно целое. Сверху активные заявки с таймерами, ниже форма новой заявки;
+ * заявка открывается экраном с суммой, таймером, выбранным методом, QR с логотипом и кнопкой «Поделиться».
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CheckoutScreen(mode: String) {
-    val ctx = LocalContext.current
+fun CheckoutScreen() {
     val scope = rememberCoroutineScope()
-    val isQr = mode == "qr"
     val methods = rememberLoader(Store.apiKey) { Api.methods().objects() }
     val balance = rememberLoader(Store.apiKey) { Api.balance() }
+    val active = rememberLoader(Store.apiKey) { Api.transactions("active", 1).getJSONArray("rows").objects() }
     val currency = balance.data?.optString("currency").orEmpty()
+    AutoRefresh(5000) { active.reload(true); methods.reload(true) }
 
-    var source by rememberSaveable(mode) { mutableStateOf("amount") }
-    var amountText by rememberSaveable(mode) { mutableStateOf("") }
-    var selected by remember(mode) { mutableStateOf(setOf<Int>()) }
-    var service by remember(mode) { mutableStateOf<Service?>(null) }
+    var source by rememberSaveable { mutableStateOf("amount") }
+    var amountText by rememberSaveable { mutableStateOf("") }
+    var selected by remember { mutableStateOf(setOf<Int>()) }
+    var service by remember { mutableStateOf<Service?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var result by remember(mode) { mutableStateOf<org.json.JSONObject?>(null) }
+    var openRow by remember { mutableStateOf<org.json.JSONObject?>(null) }
     var showCard by remember { mutableStateOf<Service?>(null) }
     var editor by remember { mutableStateOf<Service?>(null) }
     var newService by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
+
+    // Заявки, которые только что ушли из активных: показываем итог (успех или отмена) и через несколько секунд убираем.
+    val finished = remember { mutableStateMapOf<Int, Pair<org.json.JSONObject, Long>>() }
+    var prevIds by remember { mutableStateOf<Set<Int>?>(null) }
+    LaunchedEffect(active.data) {
+        val cur = active.data?.map { it.optInt("id") }?.toSet() ?: return@LaunchedEffect
+        val prev = prevIds
+        prevIds = cur
+        if (prev != null) (prev - cur).forEach { id ->
+            runCatching { Api.live(id) }.onSuccess { finished[id] = it to (System.currentTimeMillis() + 9000) }
+        }
+    }
+    val now = rememberNow()
+    LaunchedEffect(now) { finished.keys.toList().forEach { k -> if ((finished[k]?.second ?: 0L) < now) finished.remove(k) } }
+    val totals = remember { mutableStateMapOf<Int, Long>() }
+
+    val open = openRow
+    if (open != null) {
+        OrderPanel(open, currency, onBack = { openRow = null; active.reload(true) })
+        return
+    }
 
     val amount = parseAmount(amountText)
-    val canCreate = amount != null
+    val all = methods.data
+    // Методы, которые не укладываются в лимиты мерчанта на эту сумму, скрываем и возвращаем по мере ввода.
+    val shown = if (all == null) null else if (amount == null) all else all.filter { it.fitsAmount(amount) }
+    val shownIds = shown?.map { it.getInt("id") }?.toSet() ?: emptySet()
+    val sel = selected.filter { it in shownIds }.toSet()
+    val hidden = if (all != null && shown != null) all.size - shown.size else 0
+    val canCreate = amount != null && (shown == null || shown.isNotEmpty())
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Title(if (isQr) tr("QR для оплаты", "Payment QR") else tr("Ссылка на оплату", "Payment link"))
-        Muted(if (isQr) tr("Покажите QR клиенту: он откроет платёжную страницу Nodera.", "Show the QR to your customer: it opens the Nodera payment page.")
-        else tr("Отправьте ссылку клиенту удалённо. Методы можно ограничить или оставить на выбор клиента.", "Send the link remotely. Limit the methods or let the customer choose."))
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { scope.launch { refreshing = true; active.reload(); methods.reload(); balance.reload(); kotlinx.coroutines.delay(700); refreshing = false } },
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Title(tr("Приём оплаты", "Accept payment"))
+            Muted(tr("Создайте заявку: клиент сканирует QR или открывает ссылку и попадает на платёжную страницу.", "Create an order: the customer scans the QR or opens the link and lands on the payment page."))
 
-        val r = result
-        if (r != null) {
-            ResultCard(r, isQr, currency) { result = null; amountText = ""; service = null; selected = emptySet() }
-            return@Column
-        }
+            val rows = active.data ?: emptyList()
+            if (rows.isNotEmpty() || finished.isNotEmpty()) {
+                Text(tr("Текущие заявки", "Current orders"), fontWeight = FontWeight.Bold, color = pal.text)
+                finished.entries.sortedByDescending { it.value.second }.forEach { (id, v) -> FinishedRow(v.first, currency) { openRow = v.first } }
+                rows.forEach { r -> ActiveRow(r, currency, now, totals) { openRow = r } }
+            }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(tr("Своя сумма", "Custom amount"), source == "amount") { source = "amount"; service = null }
-            Chip(tr("Услуги и товары", "Services"), source == "services") { source = "services" }
-        }
+            Text(tr("Новая заявка", "New order"), fontWeight = FontWeight.Bold, color = pal.text)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip(tr("Своя сумма", "Custom amount"), source == "amount") { source = "amount"; service = null }
+                Chip(tr("Услуги и товары", "Services"), source == "services") { source = "services" }
+            }
 
-        if (source == "services") {
-            if (Store.services.isEmpty()) Card { Muted(tr("Добавьте услуги с готовыми суммами, например «Ремонт ПК — 1000».", "Add services with preset prices, e.g. “PC repair — 1000”.")) }
-            Store.services.forEach { s ->
-                val on = service?.id == s.id
-                Card(onClick = { service = s; amountText = s.amount }, modifier = Modifier.background(if (on) Accent.copy(alpha = .08f) else pal.surface)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        IconBadge(Icons.Rounded.Storefront)
-                        Column(Modifier.weight(1f)) {
-                            Text(s.name, fontWeight = FontWeight.Bold, color = pal.text)
-                            if (s.description.isNotBlank()) Muted(s.description.take(80))
+            if (source == "services") {
+                if (Store.services.isEmpty()) Card { Muted(tr("Добавьте услуги с готовыми суммами, например «Ремонт ПК — 1000».", "Add services with preset prices, e.g. “PC repair — 1000”.")) }
+                Store.services.forEach { s ->
+                    val on = service?.id == s.id
+                    Card(onClick = { service = s; amountText = s.amount }, tint = if (on) Accent else null) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            IconBadge(Icons.Rounded.Storefront)
+                            Column(Modifier.weight(1f)) {
+                                Text(s.name, fontWeight = FontWeight.Bold, color = pal.text)
+                                if (s.description.isNotBlank()) Muted(s.description.take(80))
+                            }
+                            Text(money(s.amount.toDoubleOrNull() ?: 0.0, currency), fontWeight = FontWeight.ExtraBold, color = Accent)
                         }
-                        Text(money(s.amount.toDoubleOrNull() ?: 0.0, currency), fontWeight = FontWeight.ExtraBold, color = Accent)
-                    }
-                    if (on) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SoftButton(tr("Показать клиенту", "Show customer"), icon = Icons.Rounded.Visibility) { showCard = s }
-                        SoftButton(tr("Изменить", "Edit"), icon = Icons.Rounded.Edit) { editor = s }
+                        if (on) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SoftButton(tr("Показать клиенту", "Show customer"), icon = Icons.Rounded.Visibility) { showCard = s }
+                            SoftButton(tr("Изменить", "Edit"), icon = Icons.Rounded.Edit) { editor = s }
+                        }
                     }
                 }
+                SoftButton(tr("Добавить услугу", "Add service"), Modifier.fillMaxWidth(), Icons.Rounded.Add) { newService = true }
+            } else {
+                Field(amountText, { amountText = it }, tr("Сумма", "Amount") + if (currency.isNotBlank()) ", $currency" else "",
+                    keyboard = KeyboardOptions(keyboardType = KeyboardType.Decimal))
             }
-            SoftButton(tr("Добавить услугу", "Add service"), Modifier.fillMaxWidth(), Icons.Rounded.Add) { newService = true }
-        } else {
-            Field(amountText, { amountText = it }, tr("Сумма", "Amount") + if (currency.isNotBlank()) ", $currency" else "",
-                keyboard = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-        }
 
-        if (source == "amount" || service != null) {
-            Text(tr("Методы оплаты", "Payment methods"), fontWeight = FontWeight.Bold, color = pal.text)
-            val list = methods.data
-            when {
-                methods.loading && list == null -> Spinner(32.dp)
-                methods.error != null -> { ErrorNote(methods.error); SoftButton(tr("Повторить", "Retry"), icon = Icons.Rounded.Refresh) { methods.reload() } }
-                list != null -> if (list.isEmpty()) Muted(tr("В кабинете нет доступных методов оплаты.", "No payment methods are available in your account."))
-                else MethodPicker(list, selected) { selected = it }
-            }
-            ErrorNote(error)
-            PrimaryButton(if (isQr) tr("Создать QR", "Create QR") else tr("Создать ссылку", "Create link"), icon = if (isQr) Icons.Rounded.QrCode2 else Icons.Rounded.Link,
-                enabled = canCreate, loading = busy) {
-                busy = true; error = null
-                scope.launch {
-                    try { result = Api.createLink(amount!!, selected.toList(), "app-" + UUID.randomUUID().toString().take(12)) }
-                    catch (e: ApiException) { error = e.message }
-                    busy = false
+            if (source == "amount" || service != null) {
+                Text(tr("Методы оплаты", "Payment methods"), fontWeight = FontWeight.Bold, color = pal.text)
+                when {
+                    methods.loading && all == null -> Spinner(32.dp)
+                    methods.error != null && all == null -> { ErrorNote(methods.error); SoftButton(tr("Повторить", "Retry"), icon = Icons.Rounded.Refresh) { methods.reload() } }
+                    shown != null -> {
+                        if (all!!.isEmpty()) Muted(tr("В кабинете нет доступных методов оплаты.", "No payment methods are available in your account."))
+                        else if (shown.isEmpty()) Card(tint = Warn) { Text(tr("На эту сумму нет подходящих методов: она вне лимитов ваших методов.", "No methods fit this amount: it is outside the limits of your methods."), color = pal.text) }
+                        else MethodPicker(shown, sel) { selected = it }
+                        if (hidden > 0 && shown.isNotEmpty()) Muted(tr("Скрыто методов с лимитами вне этой суммы: $hidden.", "Methods hidden because the amount is outside their limits: $hidden."))
+                    }
+                }
+                ErrorNote(error)
+                PrimaryButton(tr("Создать QR и ссылку", "Create QR and link"), icon = Icons.Rounded.QrCode2, enabled = canCreate, loading = busy) {
+                    busy = true; error = null
+                    scope.launch {
+                        try {
+                            val r = Api.createLink(amount!!, sel.toList(), "app-" + UUID.randomUUID().toString().take(12))
+                            val row = org.json.JSONObject().put("id", r.getInt("id")).put("link", r.getString("link")).put("amount", amount).put("currency", currency).put("status", "created")
+                            // Логотип в центре QR: если выбран ровно один метод, берём его.
+                            if (sel.size == 1) shown?.firstOrNull { it.getInt("id") == sel.first() }?.let { m ->
+                                row.put("_logo", m.optStr("logo")).put("_bg", m.optStr("bg")).put("_cover", m.optBoolean("cover")).put("_name", m.optStr("name"))
+                            }
+                            openRow = row; amountText = ""; service = null; selected = emptySet(); active.reload(true)
+                        } catch (e: ApiException) { error = e.message }
+                        busy = false
+                    }
                 }
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 
@@ -125,36 +172,120 @@ fun CheckoutScreen(mode: String) {
     }
 }
 
+/** Активная заявка в списке: кольцо таймера, сумма, метод, статус; вся карточка окрашена в цвет статуса. */
 @Composable
-private fun ResultCard(r: org.json.JSONObject, isQr: Boolean, currency: String, onNew: () -> Unit) {
-    val ctx = LocalContext.current
-    val link = r.getString("link")
-    val id = r.getInt("id")
-    var status by remember(id) { mutableStateOf("created") }
-    LaunchedEffect(id) {
-        while (true) {
-            runCatching { status = Api.transaction(id).optString("status", status) }
-            if (status in listOf("completed", "canceled", "failed", "expired")) break
-            delay(4000)
-        }
-    }
-    val (label, color) = statusLabel(status)
-    Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Заявка", "Order") + " #$id", fontWeight = FontWeight.Bold, color = pal.text, modifier = Modifier.weight(1f))
+private fun ActiveRow(r: org.json.JSONObject, currency: String, now: Long, totals: MutableMap<Int, Long>, onClick: () -> Unit) {
+    val id = r.optInt("id")
+    val (label, color) = statusLabel(r.optString("status"))
+    val remaining = (parseIsoMs(r.optString("expiresAt")) ?: now) - now
+    if (remaining > (totals[id] ?: 0L)) totals[id] = remaining
+    Card(onClick = onClick, tint = color) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TimerRing(remaining.coerceAtLeast(0), totals[id] ?: remaining, 58.dp, 4.5.dp, 12)
+            Column(Modifier.weight(1f)) {
+                Text("#$id  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), fontWeight = FontWeight.Bold, color = pal.text)
+                Muted(r.optStr("method") ?: tr("Клиент выберет метод", "Customer picks the method"))
+            }
             StatusPill(label, color)
         }
-        Spacer(Modifier.height(12.dp))
-        QrView(link, Modifier.fillMaxWidth(0.8f).align(Alignment.CenterHorizontally))
-        Spacer(Modifier.height(12.dp))
-        Text(link, color = Accent, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable { openUrl(ctx, link) })
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            SoftButton(tr("Копировать", "Copy"), Modifier.weight(1f), Icons.Rounded.ContentCopy) { copy(ctx, link) }
-            SoftButton(tr("Поделиться", "Share"), Modifier.weight(1f), Icons.Rounded.Share) { share(ctx, link) }
+    }
+}
+
+/** Заявка только что закрылась: большая карточка «Оплачено» или «Отменена», затем исчезает. */
+@Composable
+private fun FinishedRow(r: org.json.JSONObject, currency: String, onClick: () -> Unit) {
+    val ok = r.optString("status") == "completed"
+    val color = if (ok) Ok else Bad
+    Card(onClick = onClick, tint = color) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ResultBadge(ok, 54.dp)
+            Column(Modifier.weight(1f)) {
+                Text(if (ok) tr("Оплата прошла успешно", "Payment successful") else tr("Заявка отменена", "Order canceled"), fontWeight = FontWeight.ExtraBold, color = color)
+                Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), color = pal.text, fontSize = 14.sp)
+            }
         }
     }
-    PrimaryButton(tr("Новая заявка", "New order"), icon = Icons.Rounded.Add) { onNew() }
+}
+
+/** Экран заявки: сумма, метод, таймер, ход статусов, QR с логотипом и кнопка «Поделиться ссылкой». */
+@Composable
+private fun OrderPanel(initial: org.json.JSONObject, currency: String, onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    val id = initial.optInt("id")
+    val link = initial.getString("link")
+    var live by remember(id) { mutableStateOf(initial) }
+    LaunchedEffect(id) {
+        while (true) {
+            runCatching { live = Api.live(id) }
+            if (live.optString("status") in FINAL_STATUSES) break
+            delay(3000)
+        }
+    }
+    val status = live.optString("status", "created")
+    val final = status in FINAL_STATUSES
+    val now = rememberNow()
+    val remaining = ((parseIsoMs(live.optString("expiresAt")) ?: now) - now).coerceAtLeast(0)
+    var total by remember(id) { mutableStateOf(0L) }
+    if (remaining > total) total = remaining
+    val logo = live.optStr("methodLogo") ?: initial.optStr("_logo")
+    val bg = if (live.optStr("methodLogo") != null) live.optStr("methodBg") else initial.optStr("_bg")
+    val cover = if (live.optStr("methodLogo") != null) live.optBoolean("methodCover") else initial.optBoolean("_cover")
+    val methodName = live.optStr("method") ?: initial.optStr("_name")
+    val amount = if (live.has("amount")) live.optDouble("amount") else initial.optDouble("amount")
+    val (label, color) = statusLabel(status)
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(pal.surface2).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.ArrowBack, null, tint = pal.text)
+            }
+            Text(tr("Заявка", "Order") + " #$id", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = pal.text, modifier = Modifier.weight(1f))
+            StatusPill(label, color)
+        }
+        Card(tint = if (final) color else null) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Muted(tr("Сумма к оплате", "Amount due"))
+                Text(money(amount, live.optString("currency", currency)), fontWeight = FontWeight.ExtraBold, fontSize = 34.sp, color = pal.text)
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (logo != null) MethodLogo(fixUrl(logo), Modifier.size(40.dp), radius = 12, pad = 4, bg = bg, cover = cover)
+                    else IconBadge(Icons.Rounded.CreditCard, size = 40)
+                    Column {
+                        Muted(tr("Метод оплаты", "Payment method"))
+                        Text(methodName ?: tr("Клиент выберет на странице", "Customer picks on the page"), fontWeight = FontWeight.SemiBold, color = pal.text)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                if (final) {
+                    ResultBadge(status == "completed", 96.dp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        if (status == "completed") tr("Оплата прошла успешно", "Payment successful") else tr("Заявка отменена", "Order canceled"),
+                        fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = if (status == "completed") Ok else Bad, textAlign = TextAlign.Center,
+                    )
+                } else {
+                    TimerRing(remaining, total, 112.dp, 8.dp, 22)
+                    Spacer(Modifier.height(4.dp))
+                    Muted(tr("Осталось на оплату", "Time left to pay"))
+                }
+                Spacer(Modifier.height(18.dp))
+                StatusSteps(status)
+            }
+        }
+        if (!final) {
+            Card {
+                QrWithLogo(link, fixUrl(logo), bg, cover, Modifier.fillMaxWidth(0.82f).align(Alignment.CenterHorizontally))
+                Spacer(Modifier.height(10.dp))
+                Text(link, color = Accent, fontSize = 12.sp, textAlign = TextAlign.Center, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().clickable { openUrl(ctx, link) })
+            }
+            PrimaryButton(tr("Поделиться ссылкой на оплату", "Share payment link"), icon = Icons.Rounded.Share) { share(ctx, link) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                SoftButton(tr("Копировать", "Copy"), Modifier.weight(1f), Icons.Rounded.ContentCopy) { copy(ctx, link) }
+                SoftButton(tr("Открыть страницу", "Open page"), Modifier.weight(1f), Icons.Rounded.OpenInNew) { openUrl(ctx, link) }
+            }
+        } else PrimaryButton(tr("Новая заявка", "New order"), icon = Icons.Rounded.Add) { onBack() }
+    }
 }
 
 /** Карточка услуги для показа клиенту. */
