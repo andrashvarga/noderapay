@@ -65,7 +65,7 @@ private fun MainShell() {
                 val dark = pal.dark
                 RoundIcon(Icons.Rounded.HelpOutline) { help = true }
                 Spacer(Modifier.width(8.dp))
-                RoundIcon(if (dark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode) { Store.setTheme(if (dark) "light" else "dark") }
+                RoundIcon(if (dark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode) { Store.applyTheme(if (dark) "light" else "dark") }
             }
         },
         bottomBar = {

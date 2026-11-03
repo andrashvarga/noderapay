@@ -80,18 +80,18 @@ object Store {
         apiKey = ""; apiSecret = ""
     }
 
-    fun setTheme(v: String) { theme = v; plain.edit().putString("theme", v).apply() }
-    fun setLang(v: String) { lang = v; plain.edit().putString("lang", v).apply() }
+    fun applyTheme(v: String) { theme = v; plain.edit().putString("theme", v).apply() }
+    fun applyLang(v: String) { lang = v; plain.edit().putString("lang", v).apply() }
     fun setOnboardingSeen() { onboardingSeen = true; plain.edit().putBoolean("onboarding", true).apply() }
-    fun setLogoMode(v: String) { logoMode = v; plain.edit().putString("logo_mode", v).apply() }
+    fun applyLogoMode(v: String) { logoMode = v; plain.edit().putString("logo_mode", v).apply() }
 
     val logoFile get() = File(app.filesDir, "custom_logo.png")
 
     fun saveCustomLogo(bytes: ByteArray) {
-        logoFile.writeBytes(bytes); logoVersion++; setLogoMode("custom")
+        logoFile.writeBytes(bytes); logoVersion++; applyLogoMode("custom")
     }
 
-    fun setIcon(v: String) {
+    fun applyIcon(v: String) {
         icon = v; plain.edit().putString("icon", v).apply()
         val pm = app.packageManager
         fun set(name: String, on: Boolean) = pm.setComponentEnabledSetting(

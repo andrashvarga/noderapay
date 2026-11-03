@@ -73,17 +73,17 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
 
         Section(tr("Оформление", "Appearance")) {
             Muted(tr("Тема", "Theme"))
-            Choice(listOf("system" to tr("Системная", "System"), "light" to tr("Светлая", "Light"), "dark" to tr("Тёмная", "Dark")), Store.theme) { Store.setTheme(it) }
+            Choice(listOf("system" to tr("Системная", "System"), "light" to tr("Светлая", "Light"), "dark" to tr("Тёмная", "Dark")), Store.theme) { Store.applyTheme(it) }
             Spacer(Modifier.height(12.dp))
             Muted(tr("Язык", "Language"))
-            Choice(listOf("ru" to "Русский", "en" to "English"), Store.lang) { Store.setLang(it) }
+            Choice(listOf("ru" to "Русский", "en" to "English"), Store.lang) { Store.applyLang(it) }
             Spacer(Modifier.height(12.dp))
             Muted(tr("Иконка приложения", "App icon"))
-            Choice(listOf("dark" to tr("Тёмная", "Dark"), "light" to tr("Светлая", "Light")), Store.icon) { Store.setIcon(it); toast(ctx, tr("Иконка сменится на экране приложений через несколько секунд", "The icon updates on the launcher in a few seconds")) }
+            Choice(listOf("dark" to tr("Тёмная", "Dark"), "light" to tr("Светлая", "Light")), Store.icon) { Store.applyIcon(it); toast(ctx, tr("Иконка сменится на экране приложений через несколько секунд", "The icon updates on the launcher in a few seconds")) }
             Spacer(Modifier.height(12.dp))
             Muted(tr("Логотип слева вверху", "Top-left logo"))
             Choice(listOf("nodera" to "Nodera", "none" to tr("Без логотипа", "None"), "custom" to tr("Свой", "Custom")), Store.logoMode) {
-                if (it == "custom" && !Store.logoFile.exists()) logoPicker.launch("image/*") else Store.setLogoMode(it)
+                if (it == "custom" && !Store.logoFile.exists()) logoPicker.launch("image/*") else Store.applyLogoMode(it)
             }
             if (Store.logoMode == "custom") { Spacer(Modifier.height(8.dp)); SoftButton(tr("Загрузить другой логотип", "Upload another logo"), icon = Icons.Rounded.Upload) { logoPicker.launch("image/*") } }
         }
