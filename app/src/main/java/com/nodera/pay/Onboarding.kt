@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -70,21 +71,21 @@ fun OnboardingDialog(onClose: () -> Unit) {
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize()) {
-            LiveBackground(tint = when (pager.currentPage) { 0 -> GradA; 1 -> Accent; 2 -> GradC; 3 -> Warn; 4 -> Ok; else -> GradB })
+            SoftBackground()
             Column(Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp, bottom = 16.dp)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     slides.indices.forEach { i ->
                         val frac = when { i < pager.currentPage -> 1f; i == pager.currentPage -> progress.value; else -> 0f }
-                        Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = .18f))) {
-                            Box(Modifier.fillMaxHeight().fillMaxWidth(frac).background(BrandBrush))
+                        Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(pal.line)) {
+                            Box(Modifier.fillMaxHeight().fillMaxWidth(frac).background(Accent))
                         }
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AppLogo(28)
                     Spacer(Modifier.weight(1f))
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = .1f)).pointerInput(Unit) { detectTapGestures { onClose() } }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Close, null, tint = Color.White)
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(pal.surface2).pointerInput(Unit) { detectTapGestures { onClose() } }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Close, null, tint = pal.text)
                     }
                 }
                 HorizontalPager(
@@ -93,10 +94,10 @@ fun OnboardingDialog(onClose: () -> Unit) {
                     },
                 ) { i -> SlideView(slides[i], pager.currentPage == i, i) }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (paused) tr("Пауза", "Paused") else tr("Удерживайте для паузы", "Hold to pause"), color = Color.White.copy(alpha = .5f), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(if (paused) tr("Пауза", "Paused") else tr("Удерживайте для паузы", "Hold to pause"), color = pal.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     val last = pager.currentPage == slides.size - 1
                     Box(
-                        Modifier.clip(RoundedCornerShape(50)).background(BrandBrush).pointerInput(last) {
+                        Modifier.clip(RoundedCornerShape(50)).background(Accent).pointerInput(last) {
                             detectTapGestures { if (last) onClose() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
                         }.padding(horizontal = 22.dp, vertical = 12.dp),
                     ) { Text(if (last) tr("Готово", "Done") else tr("Далее", "Next"), color = Color.White, fontWeight = FontWeight.Bold) }
@@ -115,9 +116,9 @@ private fun SlideView(s: Slide, active: Boolean, index: Int) {
     Column(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(Modifier.scale(0.92f + 0.08f * appear).alpha(0.4f + 0.6f * appear)) { MockPhone(index, s.target, phase) }
         Spacer(Modifier.height(22.dp))
-        Text(tr(s.ru, s.en), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, textAlign = TextAlign.Center)
+        Text(tr(s.ru, s.en), color = pal.text, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
-        Text(tr(s.ruText, s.enText), color = Color.White.copy(alpha = .75f), fontSize = 15.sp, lineHeight = 21.sp, textAlign = TextAlign.Center)
+        Text(tr(s.ruText, s.enText), color = pal.muted, fontSize = 15.sp, lineHeight = 21.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -136,35 +137,35 @@ private fun MockPhone(index: Int, target: Int, p: Float) {
     val tap2 = if (p in 0.6f..0.78f) 1f - kotlin.math.abs((p - 0.69f) / 0.09f) else 0f
     val navOn = p > 0.25f
     val done = ((p - 0.62f) / 0.2f).coerceIn(0f, 1f) // «результат» действия на экране
-    Box(Modifier.size(W.dp, H.dp).clip(RoundedCornerShape(30.dp)).background(Color(0xFF10132A)).border(2.dp, BrandBrush, RoundedCornerShape(30.dp))) {
+    Box(Modifier.size(W.dp, H.dp).shadow(18.dp, RoundedCornerShape(34.dp), ambientColor = Color.Black.copy(alpha = .25f), spotColor = Color.Black.copy(alpha = .4f)).background(Color(0xFF14161E), RoundedCornerShape(34.dp)).padding(5.dp).clip(RoundedCornerShape(29.dp)).background(pal.bg)) {
         // Шапка.
         Row(Modifier.fillMaxWidth().padding(14.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.logo_mark), null, Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
-            Box(Modifier.height(8.dp).width(60.dp).clip(CircleShape).background(Color.White.copy(alpha = .25f)))
+            Box(Modifier.height(8.dp).width(60.dp).clip(CircleShape).background(pal.muted.copy(alpha = .35f)))
         }
         // Содержимое раздела.
         Box(Modifier.padding(top = 44.dp, bottom = 58.dp).fillMaxSize().padding(horizontal = 14.dp)) { MockContent(index, p, done) }
         // Нижняя панель.
-        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(52.dp).background(Color(0xFF181C3A)), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(52.dp).background(pal.surface), verticalAlignment = Alignment.CenterVertically) {
             navIcons.forEachIndexed { i, ic ->
                 val on = i == target && navOn
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(34.dp).clip(CircleShape).background(if (on) Accent.copy(alpha = .35f) else Color.Transparent), contentAlignment = Alignment.Center) {
-                        Icon(ic, null, tint = if (on) Color.White else Color.White.copy(alpha = .45f), modifier = Modifier.size(20.dp))
+                    Box(Modifier.size(34.dp).clip(CircleShape).background(if (on) Accent.copy(alpha = .16f) else Color.Transparent), contentAlignment = Alignment.Center) {
+                        Icon(ic, null, tint = if (on) Accent else pal.muted, modifier = Modifier.size(20.dp))
                     }
                 }
             }
         }
         // Кольцо нажатия и палец.
         val tap = maxOf(tap1, tap2)
-        if (tap > 0f) Box(Modifier.offset((fx - 2f).dp, (fy - 2f).dp).size((26f + 14f * (1f - tap)).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.35f * tap)))
-        Icon(Icons.Rounded.TouchApp, null, tint = Color.White, modifier = Modifier.offset((fx - 4f).dp, (fy - 2f).dp).size(34.dp).scale(1f - 0.12f * tap))
+        if (tap > 0f) Box(Modifier.offset((fx - 2f).dp, (fy - 2f).dp).size((26f + 14f * (1f - tap)).dp).clip(CircleShape).background(Accent.copy(alpha = 0.3f * tap)))
+        Icon(Icons.Rounded.TouchApp, null, tint = pal.text, modifier = Modifier.offset((fx - 4f).dp, (fy - 2f).dp).size(34.dp).scale(1f - 0.12f * tap))
     }
 }
 
 @Composable
-private fun Bar(w: Int, h: Int = 9, color: Color = Color.White.copy(alpha = .22f), r: Int = 5) =
+private fun Bar(w: Int, h: Int = 9, color: Color = Color(0x4D8D92B0), r: Int = 5) =
     Box(Modifier.width(w.dp).height(h.dp).clip(RoundedCornerShape(r.dp)).background(color))
 
 @Composable
@@ -172,10 +173,10 @@ private fun MockContent(index: Int, p: Float, done: Float) {
     Column(verticalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxSize()) {
         when (index) {
             0 -> { // Ключи: поля заполняются точками, потом замок.
-                Bar(90, 10, Color.White.copy(alpha = .4f))
+                Bar(90, 10, Color(0x808D92B0))
                 repeat(3) { i ->
-                    Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(9.dp)).background(Color.White.copy(alpha = .08f)).padding(horizontal = 9.dp), contentAlignment = Alignment.CenterStart) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(((p * 1.6f - i * 0.2f).coerceIn(0f, 1f) * 16).toInt()) { Box(Modifier.size(5.dp).clip(CircleShape).background(Color.White.copy(alpha = .8f))) } }
+                    Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(9.dp)).background(pal.surface2).padding(horizontal = 9.dp), contentAlignment = Alignment.CenterStart) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(((p * 1.6f - i * 0.2f).coerceIn(0f, 1f) * 16).toInt()) { Box(Modifier.size(5.dp).clip(CircleShape).background(pal.text.copy(alpha = .75f))) } }
                     }
                 }
                 Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(10.dp)).background(if (done > 0.5f) Ok else Accent), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
@@ -200,42 +201,42 @@ private fun MockContent(index: Int, p: Float, done: Float) {
             2 -> { // Ссылка: методы отмечаются галочками, ссылка готова.
                 repeat(3) { i ->
                     val on = ((p * 3f) > i + 0.4f) && i < 3
-                    Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(9.dp)).background(if (on) Accent.copy(alpha = .35f) else Color.White.copy(alpha = .08f)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(Color.White), contentAlignment = Alignment.Center) { if (on) Icon(Icons.Rounded.Check, null, tint = Accent, modifier = Modifier.size(14.dp)) }
+                    Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(9.dp)).background(if (on) Accent.copy(alpha = .35f) else pal.surface2).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(pal.surface).border(1.dp, pal.line, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) { if (on) Icon(Icons.Rounded.Check, null, tint = Accent, modifier = Modifier.size(14.dp)) }
                         Spacer(Modifier.width(8.dp)); Bar(70 - i * 10)
                     }
                 }
-                Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(10.dp)).background(BrandBrush), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(10.dp)).background(Accent), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(if (done > 0.5f) Icons.Rounded.Share else Icons.Rounded.Link, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
             3 -> { // Услуги: карточка выбирается и раскрывается.
                 repeat(3) { i ->
                     val sel = i == 1 && p > 0.3f
-                    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(if (sel) Accent.copy(alpha = .35f) else Color.White.copy(alpha = .08f)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Storefront, null, tint = if (sel) Color.White else GradA, modifier = Modifier.size(16.dp))
+                    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(if (sel) Accent.copy(alpha = .35f) else pal.surface2).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Storefront, null, tint = if (sel) Accent else GradA, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp)); Bar(56); Spacer(Modifier.weight(1f)); Bar(26, 9, GradC.copy(alpha = .8f))
                     }
                 }
-                Row(Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(9.dp)).background(Color.White.copy(alpha = if (done > 0.5f) .2f else .08f)), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Icon(Icons.Rounded.Visibility, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                Row(Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(9.dp)).background(if (done > 0.5f) Accent.copy(alpha = .18f) else pal.surface2), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Icon(Icons.Rounded.Visibility, null, tint = pal.text, modifier = Modifier.size(15.dp))
                 }
             }
             4 -> { // Заявки: строки со статусами, крестик отмены и скрепка чека.
                 repeat(3) { i ->
                     val paid = i == 0
-                    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = .08f)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(pal.surface2).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Bar(44); Spacer(Modifier.weight(1f))
                         Box(Modifier.clip(RoundedCornerShape(50)).background((if (paid) Ok else Warn).copy(alpha = .3f)).padding(horizontal = 7.dp, vertical = 2.dp)) { Box(Modifier.size(width = 22.dp, height = 5.dp).clip(CircleShape).background(if (paid) Ok else Warn)) }
-                        if (!paid) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(20.dp).clip(CircleShape).background(Bad.copy(alpha = if (i == 1 && done > 0.4f) .9f else .3f)), contentAlignment = Alignment.Center) { Icon(if (i == 1) Icons.Rounded.Close else Icons.Rounded.AttachFile, null, tint = Color.White, modifier = Modifier.size(13.dp)) } }
+                        if (!paid) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(20.dp).clip(CircleShape).background(Bad.copy(alpha = if (i == 1 && done > 0.4f) .9f else .55f)), contentAlignment = Alignment.Center) { Icon(if (i == 1) Icons.Rounded.Close else Icons.Rounded.AttachFile, null, tint = Color.White, modifier = Modifier.size(13.dp)) } }
                     }
                 }
             }
             else -> { // Вывод: кошелек, сумма растет, стрелка.
                 Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(Accent.copy(alpha = .3f)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Bar(70)
+                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Accent, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Bar(70)
                 }
-                Text(String.format(java.util.Locale.US, "%.0f USDT", 250f * ((p * 1.5f).coerceIn(0f, 1f))), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                Text(String.format(java.util.Locale.US, "%.0f USDT", 250f * ((p * 1.5f).coerceIn(0f, 1f))), color = pal.text, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
                 Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(10.dp)).background(if (done > 0.5f) Ok else Accent), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(if (done > 0.5f) Icons.Rounded.Check else Icons.Rounded.ArrowUpward, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }

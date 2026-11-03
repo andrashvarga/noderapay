@@ -7,6 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -76,13 +79,18 @@ fun TerminalAnim(progress: Float, wave: Float, modifier: Modifier = Modifier) {
     val p = pal
     Box(modifier.size(230.dp, 360.dp)) {
         // Корпус: выпуклая мягкая плита.
-        Box(Modifier.align(Alignment.BottomCenter).size(210.dp, 300.dp).neu(40.dp, depth = 14.dp))
+        Box(
+            Modifier.align(Alignment.BottomCenter).size(210.dp, 300.dp)
+                .shadow(22.dp, RoundedCornerShape(40.dp), ambientColor = Color.Black.copy(alpha = if (p.dark) .6f else .14f), spotColor = Color.Black.copy(alpha = if (p.dark) .7f else .28f))
+                .background(Brush.verticalGradient(listOf(p.surface, p.surface2)), RoundedCornerShape(40.dp))
+                .border(1.dp, p.line, RoundedCornerShape(40.dp)),
+        )
         // Щель для карты.
-        Box(Modifier.align(Alignment.TopCenter).offset(y = 74.dp).size(130.dp, 11.dp).neu(6.dp, inset = true, depth = 2.dp))
+        Box(Modifier.align(Alignment.TopCenter).offset(y = 74.dp).size(130.dp, 11.dp).background(Color(0xFF0C1022), RoundedCornerShape(6.dp)).border(1.dp, p.line, RoundedCornerShape(6.dp)))
         // Стеклянный экран.
         val screenOn = ((progress - 0.20f) / 0.12f).coerceIn(0f, 1f)
         Box(
-            Modifier.offset(30.dp, 102.dp).size(170.dp, 100.dp).neu(20.dp, inset = true, depth = 3.dp).padding(5.dp).clip(RoundedCornerShape(16.dp))
+            Modifier.offset(30.dp, 102.dp).size(170.dp, 100.dp).background(Color(0xFF05060C), RoundedCornerShape(20.dp)).padding(5.dp).clip(RoundedCornerShape(16.dp))
                 .background(Brush.verticalGradient(listOf(Color(0xFF0C1022), Color(0xFF161C3C)))),
             contentAlignment = Alignment.Center,
         ) {
@@ -127,7 +135,10 @@ fun TerminalAnim(progress: Float, wave: Float, modifier: Modifier = Modifier) {
         val lit = if (progress in 0.30f..0.84f) (progress * 16f).toInt() % 9 else -1
         for (i in 0 until 9) {
             Box(
-                Modifier.offset((30 + (i % 3) * 61).dp, (222 + (i / 3) * 42).dp).size(48.dp, 34.dp).neu(14.dp, inset = i == lit, depth = 3.dp),
+                Modifier.offset((30 + (i % 3) * 61).dp, (222 + (i / 3) * 42).dp).size(48.dp, 34.dp)
+                    .shadow(if (i == lit) 0.dp else 3.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = .2f), spotColor = Color.Black.copy(alpha = if (p.dark) .6f else .3f))
+                    .background(if (i == lit) Accent.copy(alpha = .22f).compositeOver(p.surface) else p.surface, RoundedCornerShape(14.dp))
+                    .border(1.dp, if (i == lit) Accent else p.line, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center,
             ) { Text(digits[i], color = if (i == lit) Accent else p.muted, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
         }

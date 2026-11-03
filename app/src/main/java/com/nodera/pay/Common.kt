@@ -242,7 +242,7 @@ fun MethodLogo(url: String?, modifier: Modifier = Modifier, radius: Int = 12, pa
         else -> SolidColor(pal.surface2)
     }
     Box(
-        modifier.neu(radius.dp, depth = 3.dp).padding(2.dp).clip(shape).background(back).border(1.dp, Color.Black.copy(alpha = .08f), shape),
+        modifier.clip(shape).background(back).border(1.dp, Color.Black.copy(alpha = .08f), shape),
         contentAlignment = Alignment.Center,
     ) {
         if (url != null) {
@@ -265,7 +265,7 @@ fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<I
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val all = selected.isEmpty()
         Row(
-            Modifier.fillMaxWidth().neuToggle(all, 20.dp) { onChange(emptySet()) }.padding(14.dp),
+            Modifier.fillMaxWidth().choice(all, 20.dp) { onChange(emptySet()) }.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             IconBadge(Icons.Rounded.DoneAll)
@@ -282,7 +282,7 @@ fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<I
                     val id = m.getInt("id")
                     val on = id in selected
                     Column(
-                        Modifier.weight(1f).neuToggle(on, 20.dp) { onChange(if (on) selected - id else selected + id) }.padding(10.dp),
+                        Modifier.weight(1f).choice(on, 20.dp) { onChange(if (on) selected - id else selected + id) }.padding(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box {
