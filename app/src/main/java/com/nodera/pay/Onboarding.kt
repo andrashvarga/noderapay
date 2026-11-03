@@ -99,7 +99,7 @@ fun OnboardingDialog(onClose: () -> Unit) {
                         Modifier.clip(RoundedCornerShape(50)).background(BrandBrush).pointerInput(last) {
                             detectTapGestures { if (last) onClose() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
                         }.padding(horizontal = 22.dp, vertical = 12.dp),
-                    ) { Text(if (last) tr("Готово", "Done") else tr("Далее", "Next"), color = Color.White, fontWeight = FontWeight.Bold, 1) }
+                    ) { Text(if (last) tr("Готово", "Done") else tr("Далее", "Next"), color = Color.White, fontWeight = FontWeight.Bold) }
                 }
             }
         }
