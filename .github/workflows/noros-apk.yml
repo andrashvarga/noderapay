@@ -52,4 +52,4 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release delete noros-latest --yes --cleanup-tag || true
-          gh release create noros-latest noros/out/NorosPay.apk noros/out/SHA256SUMS --target "$GITHUB_SHA" --prerelease --title "Noros Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NorosPay.apk на телефон и откройте (разрешите установку из этого источника)."
+          for i in 1 2 3; do gh release create noros-latest noros/out/NorosPay.apk noros/out/SHA256SUMS --title "Noros Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NorosPay.apk на телефон и откройте (разрешите установку из этого источника)." && break; sleep 10; done
