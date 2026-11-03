@@ -35,7 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.foundation.border
 import coil.compose.AsyncImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -177,35 +178,65 @@ fun <T> rememberLoader(key: Any? = null, fetch: suspend () -> T): Loader<T> {
     return l
 }
 
-/** Выбор метода оплаты из тех, что доступны в кабинете. Можно один метод, несколько или «на выбор клиента». */
+/** Логотипы приходят с адресом, который знает сервер (может быть внутренним): берем путь и подставляем адрес сервера из настроек. */
+fun fixUrl(u: String?): String? {
+    if (u.isNullOrBlank() || u == "null") return null
+    val i = u.indexOf("/assets/")
+    return if (i >= 0 && Store.baseUrl.isNotBlank()) Store.baseUrl.trimEnd('/') + u.substring(i) else u
+}
+
+/** Название «NODERA» логотипом бренда + «PAY» широким шрифтом. */
 @Composable
-fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<Int>) -> Unit, multi: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (multi) {
-            val all = selected.isEmpty()
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (all) Accent.copy(alpha = .12f) else pal.surface)
-                    .clickable { onChange(emptySet()) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(tr("Клиент выберет сам (все доступные)", "Customer chooses (all available)"), Modifier.weight(1f), fontWeight = FontWeight.SemiBold, color = pal.text)
-                if (all) Icon(Icons.Rounded.Check, null, tint = Accent)
+fun BrandTitle(height: Int = 14, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Image(painterResource(if (pal.dark) R.drawable.wordmark_light else R.drawable.wordmark_dark), "Nodera", Modifier.height(height.dp).width((height * 8.26f).dp), contentScale = ContentScale.Fit)
+        Spacer(Modifier.width((height * 0.6f).dp))
+        Text("PAY", fontWeight = FontWeight.Medium, fontSize = (height * 1.05f).sp, letterSpacing = (height * 0.28f).sp, color = Accent)
+    }
+}
+
+/**
+ * Выбор методов оплаты из доступных в кабинете: крупные карточки с логотипами по два в ряд.
+ * Пустой выбор = «все методы, клиент выберет сам».
+ */
+@Composable
+fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<Int>) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val all = selected.isEmpty()
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (all) Accent.copy(alpha = .14f) else pal.surface)
+                .border(1.5.dp, if (all) Accent else pal.line, RoundedCornerShape(16.dp)).clickable { onChange(emptySet()) }.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            IconBadge(Icons.Rounded.DoneAll)
+            Column(Modifier.weight(1f)) {
+                Text(tr("Все методы", "All methods"), fontWeight = FontWeight.Bold, color = pal.text)
+                Muted(tr("Клиент выберет сам на платёжной странице", "The customer picks on the payment page"))
             }
+            if (all) Icon(Icons.Rounded.CheckCircle, null, tint = Accent)
         }
-        methods.forEach { m ->
-            val id = m.getInt("id")
-            val on = id in selected
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (on) Accent.copy(alpha = .12f) else pal.surface)
-                    .clickable { onChange(if (multi) (if (on) selected - id else selected + id) else setOf(id)) }.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                val logo = m.optString("logo").takeIf { it.isNotBlank() && it != "null" }
-                Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                    if (logo != null) AsyncImage(logo, null, Modifier.size(30.dp), contentScale = ContentScale.Fit)
+        if (!all) Muted(tr("Выбрано: ${selected.size}. Клиент увидит только их.", "Selected: ${selected.size}. The customer sees only these."))
+        methods.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { m ->
+                    val id = m.getInt("id")
+                    val on = id in selected
+                    Column(
+                        Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(if (on) Accent.copy(alpha = .14f) else pal.surface)
+                            .border(1.5.dp, if (on) Accent else pal.line, RoundedCornerShape(16.dp)).clickable { onChange(if (on) selected - id else selected + id) }
+                            .padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                            val logo = fixUrl(m.optString("logo"))
+                            if (logo != null) AsyncImage(logo, null, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
+                            else Icon(Icons.Rounded.CreditCard, null, tint = Accent, modifier = Modifier.size(30.dp))
+                            if (on) Icon(Icons.Rounded.CheckCircle, null, tint = Accent, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp))
+                        }
+                        Text(m.getString("name"), fontWeight = FontWeight.SemiBold, color = pal.text, fontSize = 13.sp, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, minLines = 2)
+                    }
                 }
-                Text(m.getString("name"), Modifier.weight(1f), fontWeight = FontWeight.SemiBold, color = pal.text)
-                if (multi) Checkbox(on, null, colors = CheckboxDefaults.colors(checkedColor = Accent))
-                else if (on) Icon(Icons.Rounded.Check, null, tint = Accent)
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

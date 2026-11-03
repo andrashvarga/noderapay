@@ -34,10 +34,11 @@ object Store {
     var logoVersion by mutableStateOf(0)
     var icon by mutableStateOf("dark")    // dark | light
     var services by mutableStateOf(listOf<Service>())
+    var testMerchant by mutableStateOf(false)
     var onboardingSeen by mutableStateOf(false)
 
     val connected get() = apiKey.isNotBlank() && apiSecret.isNotBlank() && baseUrl.isNotBlank()
-    val isTest get() = apiKey.startsWith("ak_test_")
+    val isTest get() = apiKey.startsWith("ak_test_") || testMerchant
 
     fun init(ctx: Context) {
         app = ctx.applicationContext
@@ -51,6 +52,7 @@ object Store {
         logoMode = plain.getString("logo_mode", "nodera") ?: "nodera"
         icon = plain.getString("icon", "dark") ?: "dark"
         onboardingSeen = plain.getBoolean("onboarding", false)
+        testMerchant = plain.getBoolean("test_merchant", false)
         services = runCatching {
             val a = JSONArray(plain.getString("services", "[]"))
             (0 until a.length()).map { val o = a.getJSONObject(it); Service(o.getString("id"), o.getString("name"), o.optString("description"), o.getString("amount")) }
@@ -68,7 +70,8 @@ object Store {
         }
     }
 
-    fun saveKeys(url: String, key: String, secret: String) {
+    fun saveKeys(url: String, key: String, secret: String, test: Boolean = false) {
+        testMerchant = test; plain.edit().putBoolean("test_merchant", test).apply()
         secure.edit().putString("api_key", key).putString("api_secret", secret).apply()
         plain.edit().putString("base_url", url).apply()
         apiKey = key; apiSecret = secret; baseUrl = url

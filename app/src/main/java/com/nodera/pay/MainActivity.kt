@@ -59,7 +59,7 @@ private fun MainShell() {
                 AppLogo(34)
                 if (Store.logoMode != "none") Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Nodera Pay", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = pal.text)
+                    BrandTitle(13)
                     if (Store.isTest) Text(tr("ТЕСТОВЫЙ РЕЖИМ", "TEST MODE"), color = Warn, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 val dark = pal.dark

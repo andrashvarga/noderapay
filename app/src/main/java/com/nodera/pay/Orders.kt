@@ -37,6 +37,7 @@ import org.json.JSONObject
 fun OrdersScreen() {
     var tab by rememberSaveable { mutableStateOf("active") }
     var open by remember { mutableStateOf<JSONObject?>(null) }
+    var toCancel by remember { mutableStateOf<JSONObject?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
     val list = rememberLoader(tab to refreshKey) {
         if (tab == "appeals") Api.appeals().getJSONArray("rows").objects() else Api.transactions(tab, 1).getJSONArray("rows").objects()
@@ -61,20 +62,47 @@ fun OrdersScreen() {
                     Card { Muted(when (tab) { "active" -> tr("Активных заявок нет.", "No active orders."); "archive" -> tr("Архив пуст.", "Archive is empty."); else -> tr("Диспутов нет.", "No disputes.") }) }
                 }
                 items(rows ?: emptyList()) { r ->
-                    if (tab == "appeals") AppealRow(r) else TxRow(r, currency) { open = r }
+                    if (tab == "appeals") AppealRow(r) else TxRow(r, currency, if (canCancel(r)) ({ toCancel = r }) else null) { open = r }
                 }
             }
         }
     }
     open?.let { TxDetail(it, currency, onClose = { open = null }, onChanged = { refreshKey++ }) }
+    toCancel?.let { CancelConfirm(it, onClose = { toCancel = null }) { toCancel = null; refreshKey++ } }
+}
+
+/** Отменить можно заявку, которая еще ждет оплаты и без чека (на проверке отмена недоступна). */
+private fun canCancel(r: JSONObject) = r.optString("status") in listOf("created", "offer", "accepted")
+
+@Composable
+private fun CancelConfirm(r: JSONObject, onClose: () -> Unit, onDone: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        icon = { Icon(Icons.Rounded.Close, null, tint = Bad) },
+        title = { Text(tr("Отменить заявку", "Cancel order") + " #${r.optInt("id")}?") },
+        text = { Text(tr("Используйте, если оплата не прошла или клиент передумал. Ссылка и QR перестанут работать.", "Use it if the payment failed or the customer changed their mind. The link and QR stop working.")) },
+        confirmButton = {
+            TextButton({
+                busy = true
+                scope.launch {
+                    try { Api.cancelTransaction(r.optInt("id")); toast(ctx, tr("Заявка отменена", "Order canceled")); onDone() }
+                    catch (e: ApiException) { toast(ctx, e.message ?: ""); onClose() }
+                }
+            }, enabled = !busy) { Text(tr("Отменить заявку", "Cancel order"), color = Bad) }
+        },
+        dismissButton = { TextButton(onClose) { Text(tr("Назад", "Back")) } },
+    )
 }
 
 @Composable
-private fun TxRow(r: JSONObject, currency: String, onClick: () -> Unit) {
+private fun TxRow(r: JSONObject, currency: String, onCancel: (() -> Unit)?, onClick: () -> Unit) {
     val (label, color) = statusLabel(r.optString("status"))
     Card(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val logo = r.optString("methodLogo").takeIf { it.isNotBlank() && it != "null" }
+            val logo = fixUrl(r.optString("methodLogo"))
             Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(pal.surface2), contentAlignment = Alignment.Center) {
                 if (logo != null) AsyncImage(logo, null, Modifier.size(32.dp), contentScale = ContentScale.Fit) else Icon(Icons.Rounded.Receipt, null, tint = Accent)
             }
@@ -83,6 +111,10 @@ private fun TxRow(r: JSONObject, currency: String, onClick: () -> Unit) {
                 Muted(shortDate(r.optString("createdAt")) + (r.optString("method").takeIf { it.isNotBlank() && it != "null" }?.let { "  ·  $it" } ?: ""))
             }
             StatusPill(label, color)
+            if (onCancel != null) Box(
+                Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Bad.copy(alpha = .14f)).clickable(onClick = onCancel),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Close, tr("Отменить заявку", "Cancel order"), tint = Bad, modifier = Modifier.size(20.dp)) }
         }
     }
 }
@@ -114,6 +146,8 @@ private fun TxDetail(r: JSONObject, currency: String, onClose: () -> Unit, onCha
     val (label, color) = statusLabel(r.optString("status"))
     val link = r.optString("link")
     var dispute by remember { mutableStateOf(false) }
+    var cancel by remember { mutableStateOf(false) }
+    var proof by remember { mutableStateOf(false) }
     // Диспут имеет смысл, если платеж отправлен клиентом, но не подтвержден: заявка еще не оплачена и не закрыта без оплаты.
     val canDispute = r.optString("status") != "completed" && !r.optBoolean("hasAppeal")
     Dialog(onDismissRequest = onClose) {
@@ -132,11 +166,15 @@ private fun TxDetail(r: JSONObject, currency: String, onClose: () -> Unit, onCha
                     SoftButton(tr("Поделиться", "Share"), Modifier.weight(1f), Icons.Rounded.Share) { share(ctx, link) }
                 }
             }
+            if (canCancel(r)) SoftButton(tr("Отменить заявку", "Cancel order"), Modifier.fillMaxWidth(), Icons.Rounded.Close, Bad) { cancel = true }
+            if (r.optString("status") in listOf("offer", "accepted")) SoftButton(tr("Добавить чек (пруф)", "Add receipt (proof)"), Modifier.fillMaxWidth(), Icons.Rounded.AttachFile) { proof = true }
             if (canDispute) SoftButton(tr("Открыть диспут", "Open dispute"), Modifier.fillMaxWidth(), Icons.Rounded.Gavel, Warn) { dispute = true }
             if (r.optBoolean("hasAppeal")) Muted(tr("По заявке уже есть диспут — смотрите вкладку «Диспуты».", "A dispute already exists — see the “Disputes” tab."))
             SoftButton(tr("Закрыть", "Close"), Modifier.fillMaxWidth()) { onClose() }
         }
     }
+    if (cancel) CancelConfirm(r, { cancel = false }) { cancel = false; onChanged(); onClose() }
+    if (proof) ProofDialog(r.optInt("id"), { proof = false }) { proof = false; onChanged(); onClose() }
     if (dispute) DisputeDialog(r.optInt("id"), r.optString("currency", currency), { dispute = false }) { dispute = false; onChanged(); onClose() }
 }
 
@@ -179,6 +217,43 @@ private fun DisputeDialog(txId: Int, currency: String, onClose: () -> Unit, onDo
                 scope.launch {
                     try { Api.createAppeal(txId, reason, parseAmount(claimed), base64!!); toast(ctx, tr("Диспут создан", "Dispute created")); onDone() }
                     catch (e: ApiException) { error = e.message }
+                    busy = false
+                }
+            }
+            SoftButton(tr("Отмена", "Cancel"), Modifier.fillMaxWidth()) { onClose() }
+        }
+    }
+}
+
+/** Чек от клиента, который мерчант добавляет к заявке: она уходит на проверку перевода. */
+@Composable
+private fun ProofDialog(txId: Int, onClose: () -> Unit, onDone: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var fileName by remember { mutableStateOf<String?>(null) }
+    var base64 by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val bytes = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            when {
+                bytes == null -> error = tr("Не удалось прочитать файл", "Cannot read the file")
+                bytes.size > 5 * 1024 * 1024 -> error = tr("Чек больше 5 МБ", "Receipt is larger than 5 MB")
+                else -> { error = null; base64 = Base64.encodeToString(bytes, Base64.NO_WRAP); fileName = uri.lastPathSegment?.substringAfterLast('/') ?: tr("чек", "receipt") }
+            }
+        }
+    }
+    Dialog(onDismissRequest = onClose) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.bg).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Title(tr("Чек по заявке", "Receipt for order") + " #$txId")
+            Muted(tr("Приложите чек о переводе от клиента (фото или PDF до 5 МБ). Заявка уйдёт на проверку.", "Attach the customer's transfer receipt (photo or PDF up to 5 MB). The order goes to review."))
+            SoftButton(fileName ?: tr("Выбрать файл", "Choose file"), Modifier.fillMaxWidth(), if (base64 == null) Icons.Rounded.AttachFile else Icons.Rounded.CheckCircle, if (base64 == null) Accent else Ok) { picker.launch(arrayOf("image/*", "application/pdf")) }
+            ErrorNote(error)
+            PrimaryButton(tr("Отправить чек", "Send receipt"), enabled = base64 != null, loading = busy) {
+                busy = true; error = null
+                scope.launch {
+                    try { Api.addProof(txId, base64!!); toast(ctx, tr("Чек отправлен", "Receipt sent")); onDone() } catch (e: ApiException) { error = e.message }
                     busy = false
                 }
             }

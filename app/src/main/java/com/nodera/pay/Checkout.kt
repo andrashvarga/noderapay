@@ -51,7 +51,7 @@ fun CheckoutScreen(mode: String) {
     var newService by remember { mutableStateOf(false) }
 
     val amount = parseAmount(amountText)
-    val canCreate = amount != null && (!isQr || selected.size == 1)
+    val canCreate = amount != null
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Title(if (isQr) tr("QR для оплаты", "Payment QR") else tr("Ссылка на оплату", "Payment link"))
@@ -95,13 +95,13 @@ fun CheckoutScreen(mode: String) {
         }
 
         if (source == "amount" || service != null) {
-            Text(if (isQr) tr("Метод оплаты", "Payment method") else tr("Методы оплаты", "Payment methods"), fontWeight = FontWeight.Bold, color = pal.text)
+            Text(tr("Методы оплаты", "Payment methods"), fontWeight = FontWeight.Bold, color = pal.text)
             val list = methods.data
             when {
                 methods.loading && list == null -> CircularProgressIndicator(Modifier.size(24.dp))
                 methods.error != null -> { ErrorNote(methods.error); SoftButton(tr("Повторить", "Retry"), icon = Icons.Rounded.Refresh) { methods.reload() } }
                 list != null -> if (list.isEmpty()) Muted(tr("В кабинете нет доступных методов оплаты.", "No payment methods are available in your account."))
-                else MethodPicker(list, selected, { selected = it }, multi = !isQr)
+                else MethodPicker(list, selected) { selected = it }
             }
             ErrorNote(error)
             PrimaryButton(if (isQr) tr("Создать QR", "Create QR") else tr("Создать ссылку", "Create link"), icon = if (isQr) Icons.Rounded.QrCode2 else Icons.Rounded.Link,

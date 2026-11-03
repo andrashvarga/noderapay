@@ -47,16 +47,10 @@ fun WithdrawalsScreen() {
     val currency = balance.data?.optString("currency").orEmpty()
     val amount = parseAmount(amountText)
 
-    if (Store.isTest) {
-        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Title(tr("Выводы", "Withdrawals"))
-            Card { Muted(tr("Вывод доступен только с боевыми ключами (ak_live_… / sk_live_…).", "Withdrawals need live keys (ak_live_… / sk_live_…).")) }
-        }
-        return
-    }
-
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Title(tr("Выводы", "Withdrawals"))
+        ErrorNote(balance.error ?: wallets.error ?: history.error)
+        if (Store.testMerchant) Card { Muted(tr("Тестовый мерчант: выводы тестовые и не двигают баланс.", "Test merchant: withdrawals are test-only and do not move the balance.")) }
         Card {
             Muted(tr("Доступно к выводу", "Available"))
             Text(money(avail, currency), fontWeight = FontWeight.ExtraBold, fontSize = 30.sp, color = pal.text)

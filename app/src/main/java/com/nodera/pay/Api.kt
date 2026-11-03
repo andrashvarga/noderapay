@@ -56,6 +56,9 @@ object Api {
 
     suspend fun transactions(state: String, page: Int) = obj("GET", "/transactions?state=$state&page=$page&per_page=30")
 
+    suspend fun cancelTransaction(id: Int) = obj("DELETE", "/transaction/$id")
+    suspend fun addProof(id: Int, docBase64: String) = obj("PATCH", "/transaction/$id/proof", JSONObject().put("doc", docBase64))
+
     suspend fun appeals() = obj("GET", "/appeals?status=all")
     suspend fun createAppeal(txId: Int, reason: String, claimed: Double?, docBase64: String): JSONObject {
         val b = JSONObject().put("transactionId", txId).put("doc", docBase64)

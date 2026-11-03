@@ -42,7 +42,7 @@ fun ConnectScreen(onConnected: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Spacer(Modifier.height(8.dp))
         AppLogo(56)
-        Text("Nodera Pay", fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, color = pal.text)
+        BrandTitle(20)
         Muted(tr("Терминал приёма платежей. Введите ключи из личного кабинета мерчанта Nodera (раздел «Ключи API») — без них приложение не работает.",
             "Payment terminal. Enter the keys from your Nodera merchant account (“API keys”) — the app does not work without them."))
         Field(url, { url = it }, tr("Адрес сервера Nodera", "Nodera server address"), keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
@@ -60,7 +60,13 @@ fun ConnectScreen(onConnected: () -> Unit) {
                 else -> {
                     busy = true; error = null
                     scope.launch {
-                        try { Api.verify(base, key, secret); Store.saveKeys(base, key, secret); onConnected() }
+                        try {
+                            val info = Api.verify(base, key, secret)
+                            val testMerchant = info.optBoolean("testMerchant")
+                            // Тестовые ключи обычного мерчанта не пускаем: нужны боевые. Тестовому мерчанту test_p2p_* тестовые ключи можно.
+                            if (key.startsWith("ak_test_") && !testMerchant) error = tr("Это тестовые ключи (test): через них деньги не принимаются. Возьмите боевые ключи (live) в кабинете мерчанта, раздел «Ключи API».", "These are test keys: no real payments can be accepted. Use the live keys from your merchant account (“API keys”).")
+                            else { Store.saveKeys(base, key, secret, testMerchant); onConnected() }
+                        }
                         catch (e: ApiException) { error = e.message }
                         busy = false
                     }

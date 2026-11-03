@@ -97,11 +97,11 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             ) {
                 Icon(TelegramIcon, null, tint = Color.White, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(tr("Поддержка в Telegram", "Telegram support") + " · @tm_chain", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(tr("Поддержка в Telegram", "Telegram support"), color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
 
-        Muted("Nodera Pay 1.0.0")
+        Muted("Nodera Pay 1.1.0")
         Spacer(Modifier.height(8.dp))
     }
 
