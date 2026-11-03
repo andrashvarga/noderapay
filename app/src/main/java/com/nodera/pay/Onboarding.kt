@@ -139,7 +139,7 @@ private fun MockPhone(index: Int, target: Int, p: Float) {
     Box(Modifier.size(W.dp, H.dp).clip(RoundedCornerShape(30.dp)).background(Color(0xFF10132A)).border(2.dp, BrandBrush, RoundedCornerShape(30.dp))) {
         // Шапка.
         Row(Modifier.fillMaxWidth().padding(14.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo_mark_dark), null, Modifier.size(20.dp))
+            Image(painterResource(R.drawable.logo_mark), null, Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
             Box(Modifier.height(8.dp).width(60.dp).clip(CircleShape).background(Color.White.copy(alpha = .25f)))
         }

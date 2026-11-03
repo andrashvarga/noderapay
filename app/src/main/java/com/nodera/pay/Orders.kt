@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -103,13 +104,11 @@ private fun TxRow(r: JSONObject, currency: String, onCancel: (() -> Unit)?, onCl
     val (label, color) = statusLabel(r.optString("status"))
     Card(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val logo = fixUrl(r.optString("methodLogo"))
-            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(pal.surface2), contentAlignment = Alignment.Center) {
-                if (logo != null) AsyncImage(logo, null, Modifier.size(32.dp), contentScale = ContentScale.Fit) else Icon(Icons.Rounded.Receipt, null, tint = Accent)
-            }
+            MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(44.dp), radius = 12, pad = 4)
             Column(Modifier.weight(1f)) {
                 Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), fontWeight = FontWeight.Bold, color = pal.text)
                 Muted(shortDate(r.optString("createdAt")) + (r.optString("method").takeIf { it.isNotBlank() && it != "null" }?.let { "  ·  $it" } ?: ""))
+                if (r.optString("status") == "completed") Text(tr("Зачислено ", "Credited ") + money(r.optDouble("amount") - r.optDouble("fee", 0.0), r.optString("currency", currency)), color = Ok, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             StatusPill(label, color)
             if (onCancel != null) Box(
@@ -138,45 +137,124 @@ private fun AppealRow(r: JSONObject) {
             }
             StatusPill(label, color)
         }
+        val why = r.optString("reject_reason").takeIf { it.isNotBlank() && it != "null" }
+            ?: r.optJSONObject("last_event")?.optString("comment")?.takeIf { st == "rejected" && it.isNotBlank() && it != "null" }
+        if (st == "rejected") Text(tr("Причина отказа: ", "Rejection reason: ") + (why ?: tr("не указана", "not specified")), color = Bad, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
     }
 }
 
+private fun cancelReasonLabel(code: String?): String? = when (code) {
+    null, "", "null" -> null
+    "canceled_by_merchant" -> tr("Отменена мерчантом", "Canceled by merchant")
+    "receipt_rejected" -> tr("Чек отклонён", "Receipt rejected")
+    "expired", "timeout" -> tr("Истекло время оплаты", "Payment time expired")
+    "canceled_by_customer" -> tr("Отменена клиентом", "Canceled by customer")
+    else -> code
+}
+
+private fun eventLabel(type: String): Pair<String, androidx.compose.ui.graphics.vector.ImageVector> = when (type) {
+    "created" -> tr("Заявка создана", "Order created") to Icons.Rounded.Add
+    "offer", "accepted" -> tr("Выданы реквизиты для оплаты", "Payment details issued") to Icons.Rounded.CreditCard
+    "proof" -> tr("Чек отправлен на проверку", "Receipt sent for review") to Icons.Rounded.AttachFile
+    "completed" -> tr("Оплата подтверждена", "Payment confirmed") to Icons.Rounded.CheckCircle
+    "canceled" -> tr("Заявка закрыта без оплаты", "Order closed unpaid") to Icons.Rounded.Close
+    "change" -> tr("Изменены сумма или метод", "Amount or method changed") to Icons.Rounded.Edit
+    "appeal" -> tr("Открыт диспут", "Dispute opened") to Icons.Rounded.Gavel
+    else -> type to Icons.Rounded.Info
+}
+
+private fun roleLabel(by: String) = when (by) {
+    "merchant" -> tr("мерчант", "merchant"); "trader" -> tr("исполнитель", "provider"); "operator" -> tr("оператор", "operator"); "customer" -> tr("клиент", "customer"); else -> tr("система", "system")
+}
+
+@Composable
+private fun DetailRow(label: String, value: String?, valueColor: Color? = null) {
+    if (value.isNullOrBlank() || value == "null") return
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.Top) {
+        Text(label, color = pal.muted, fontSize = 13.sp, modifier = Modifier.weight(0.42f))
+        Text(value, color = valueColor ?: pal.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(0.58f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+    }
+}
+
+/** Карточка заявки в духе админки: статус, суммы, метод и получатель, ход заявки по этапам, действия. */
 @Composable
 private fun TxDetail(r: JSONObject, currency: String, onClose: () -> Unit, onChanged: () -> Unit) {
     val ctx = LocalContext.current
-    val (label, color) = statusLabel(r.optString("status"))
+    val id = r.optInt("id")
+    val full = rememberLoader(id) { Api.transaction(id) }
+    val hist = rememberLoader(id) { Api.history(id).objects() }
+    val f = full.data ?: r
+    val status = f.optString("status", r.optString("status"))
+    val (label, color) = statusLabel(status)
+    val cur = f.optString("currency", r.optString("currency", currency))
+    val amount = f.optDouble("amount", r.optDouble("amount"))
+    val fee = f.optDouble("fee", r.optDouble("fee", 0.0)).let { if (it.isNaN()) 0.0 else it }
     val link = r.optString("link")
     var dispute by remember { mutableStateOf(false) }
     var cancel by remember { mutableStateOf(false) }
     var proof by remember { mutableStateOf(false) }
-    // Диспут имеет смысл, если платеж отправлен клиентом, но не подтвержден: заявка еще не оплачена и не закрыта без оплаты.
-    val canDispute = r.optString("status") != "completed" && !r.optBoolean("hasAppeal")
-    Dialog(onDismissRequest = onClose) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.bg).padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Диспут — только по закрытой без оплаты заявке: пока она в работе, он недоступен.
+    val closedUnpaid = status in listOf("canceled", "expired", "failed")
+    val canDispute = closedUnpaid && !r.optBoolean("hasAppeal")
+    val inWork = status in listOf("created", "offer", "accepted", "proof")
+    Dialog(onDismissRequest = onClose, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp).clip(RoundedCornerShape(24.dp)).background(pal.bg).padding(18.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Title(tr("Заявка", "Order") + " #${r.optInt("id")}"); Spacer(Modifier.weight(1f)); StatusPill(label, color)
+                MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(44.dp), radius = 12, pad = 4)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) { Title(tr("Заявка", "Order") + " #$id"); Muted(shortDate(f.optString("createdAt", r.optString("createdAt")))) }
+                StatusPill(label, color)
             }
-            Text(money(r.optDouble("amount"), r.optString("currency", currency)), fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, color = pal.text)
-            Muted(shortDate(r.optString("createdAt")))
-            r.optString("method").takeIf { it.isNotBlank() && it != "null" }?.let { Muted(tr("Метод: ", "Method: ") + it) }
-            r.optString("cancelReason").takeIf { it.isNotBlank() && it != "null" }?.let { Muted(tr("Причина: ", "Reason: ") + it) }
-            if (r.optString("status") == "created" && link.isNotBlank()) {
+            Card {
+                Text(money(amount, cur), fontWeight = FontWeight.ExtraBold, fontSize = 30.sp, color = pal.text)
+                if (status == "completed") Text(tr("Зачислено ", "Credited ") + money(amount - fee, cur), color = Ok, fontWeight = FontWeight.Bold)
+                else if (inWork) Muted(tr("Ожидает оплаты клиентом", "Waiting for the customer to pay"))
+            }
+            Card {
+                DetailRow(tr("Метод оплаты", "Payment method"), r.optString("method"))
+                DetailRow(tr("Банк получателя", "Receiving bank"), f.optString("bankReceiver"))
+                DetailRow(tr("Получатель", "Recipient"), f.optString("cardOwner"))
+                DetailRow("Order ID", f.optString("orderId", r.optString("orderId")))
+                DetailRow(tr("Сумма заявки", "Order amount"), money(amount, cur))
+                if (fee > 0) DetailRow(tr("Комиссия", "Fee"), money(fee, cur))
+                DetailRow(tr("Причина закрытия", "Closing reason"), cancelReasonLabel(f.optString("cancelReason", r.optString("cancelReason"))), Bad)
+                DetailRow(tr("Создана", "Created"), shortDate(f.optString("createdAt", r.optString("createdAt"))))
+                DetailRow(tr("Обновлена", "Updated"), shortDate(f.optString("updatedAt", r.optString("updatedAt"))))
+            }
+            val h = hist.data
+            if (!h.isNullOrEmpty()) Card {
+                Text(tr("Ход заявки", "Order timeline"), fontWeight = FontWeight.Bold, color = pal.text)
+                Spacer(Modifier.height(8.dp))
+                h.forEach { e ->
+                    val (txt, ic) = eventLabel(e.optString("type"))
+                    Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        IconBadge(ic, if (e.optString("type") == "completed") Ok else if (e.optString("type") == "canceled") Bad else Accent, 32)
+                        Column(Modifier.weight(1f)) {
+                            Text(txt, color = pal.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Muted(shortDate(e.optString("at")) + "  ·  " + roleLabel(e.optString("by")))
+                        }
+                    }
+                }
+            } else if (hist.loading || full.loading) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Accent)
+            ErrorNote(full.error)
+            if (status == "created" && link.isNotBlank()) {
                 QrView(link, Modifier.fillMaxWidth(0.6f).align(Alignment.CenterHorizontally))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SoftButton(tr("Копировать", "Copy"), Modifier.weight(1f), Icons.Rounded.ContentCopy) { copy(ctx, link) }
                     SoftButton(tr("Поделиться", "Share"), Modifier.weight(1f), Icons.Rounded.Share) { share(ctx, link) }
                 }
             }
-            if (canCancel(r)) SoftButton(tr("Отменить заявку", "Cancel order"), Modifier.fillMaxWidth(), Icons.Rounded.Close, Bad) { cancel = true }
-            if (r.optString("status") in listOf("offer", "accepted")) SoftButton(tr("Добавить чек (пруф)", "Add receipt (proof)"), Modifier.fillMaxWidth(), Icons.Rounded.AttachFile) { proof = true }
+            if (canCancel(r.put("status", status))) SoftButton(tr("Отменить заявку", "Cancel order"), Modifier.fillMaxWidth(), Icons.Rounded.Close, Bad) { cancel = true }
+            if (status in listOf("offer", "accepted")) SoftButton(tr("Добавить чек (пруф)", "Add receipt (proof)"), Modifier.fillMaxWidth(), Icons.Rounded.AttachFile) { proof = true }
             if (canDispute) SoftButton(tr("Открыть диспут", "Open dispute"), Modifier.fillMaxWidth(), Icons.Rounded.Gavel, Warn) { dispute = true }
+            else if (inWork) Muted(tr("Диспут можно открыть после того, как заявка закроется без оплаты.", "A dispute can be opened once the order closes unpaid."))
             if (r.optBoolean("hasAppeal")) Muted(tr("По заявке уже есть диспут — смотрите вкладку «Диспуты».", "A dispute already exists — see the “Disputes” tab."))
             SoftButton(tr("Закрыть", "Close"), Modifier.fillMaxWidth()) { onClose() }
         }
     }
     if (cancel) CancelConfirm(r, { cancel = false }) { cancel = false; onChanged(); onClose() }
-    if (proof) ProofDialog(r.optInt("id"), { proof = false }) { proof = false; onChanged(); onClose() }
-    if (dispute) DisputeDialog(r.optInt("id"), r.optString("currency", currency), { dispute = false }) { dispute = false; onChanged(); onClose() }
+    if (proof) ProofDialog(id, { proof = false }) { proof = false; onChanged(); onClose() }
+    if (dispute) DisputeDialog(id, cur, { dispute = false }) { dispute = false; onChanged(); onClose() }
 }
 
 /** Диспут по отправленному, но не подтвержденному платежу. Чек обязателен. */
@@ -206,7 +284,7 @@ private fun DisputeDialog(txId: Int, currency: String, onClose: () -> Unit, onDo
     Dialog(onDismissRequest = onClose) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.bg).padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Title(tr("Диспут по заявке", "Dispute") + " #$txId")
-            Muted(tr("Платёж отправлен, но не подтверждён. Приложите чек — без него диспут не создаётся.", "The payment was sent but not confirmed. Attach the receipt — a dispute cannot be created without it."))
+            Muted(tr("Заявка закрыта, а клиент уверяет, что оплатил. Приложите чек — без него диспут не создаётся.", "The order is closed but the customer says they paid. Attach the receipt — a dispute cannot be created without it."))
             SoftButton(fileName ?: tr("Прикрепить чек (фото или PDF)", "Attach receipt (photo or PDF)"), Modifier.fillMaxWidth(), if (base64 == null) Icons.Rounded.AttachFile else Icons.Rounded.CheckCircle,
                 if (base64 == null) Accent else Ok) { picker.launch(arrayOf("image/*", "application/pdf")) }
             Field(claimed, { claimed = it }, tr("Фактически переведённая сумма, $currency (если отличается)", "Amount actually sent, $currency (if different)"),

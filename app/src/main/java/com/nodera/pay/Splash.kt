@@ -99,7 +99,7 @@ fun TerminalAnim(progress: Float, wave: Float, modifier: Modifier = Modifier) {
         }
         // Знак Nodera на экране терминала, пока идет загрузка.
         val markAlpha = (1f - ((progress - 0.8f) / 0.1f).coerceIn(0f, 1f)) * ((progress - 0.25f) / 0.15f).coerceIn(0f, 1f)
-        Image(painterResource(R.drawable.logo_mark_dark), null, Modifier.offset(76.dp, 88.dp).size(48.dp).alpha(markAlpha), contentScale = ContentScale.Fit)
+        Image(painterResource(R.drawable.logo_mark), null, Modifier.offset(76.dp, 88.dp).size(48.dp).alpha(markAlpha), contentScale = ContentScale.Fit)
     }
 }
 
@@ -122,8 +122,8 @@ fun SplashScreen(onDone: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Row(Modifier.alpha(appear), verticalAlignment = Alignment.CenterVertically) {
                 Image(painterResource(R.drawable.wordmark_light), "Nodera", Modifier.height(20.dp).width(165.dp), contentScale = ContentScale.Fit)
-                Spacer(Modifier.width(12.dp))
-                Text("PAY", color = GradC, fontSize = 21.sp, fontWeight = FontWeight.Medium, letterSpacing = 6.sp)
+                Spacer(Modifier.width(18.dp))
+                Image(painterResource(R.drawable.pay_light), "Pay", Modifier.height(18.dp).width(77.dp), contentScale = ContentScale.Fit)
             }
             Spacer(Modifier.height(8.dp))
             Text(tr("Платёжный терминал", "Payment terminal"), color = Color.White.copy(alpha = .6f), fontSize = 15.sp, letterSpacing = 1.sp, modifier = Modifier.alpha(appear))

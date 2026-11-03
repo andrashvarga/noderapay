@@ -52,6 +52,12 @@ private enum class Tab(val ru: String, val en: String, val icon: androidx.compos
 private fun MainShell() {
     var tab by rememberSaveable { mutableStateOf(Tab.Orders) }
     var help by remember { mutableStateOf(!Store.onboardingSeen) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { syncWatcher(ctx) }
+    LaunchedEffect(Unit) {
+        ensureChannels(ctx)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && !canNotify(ctx) && Store.notify) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) else syncWatcher(ctx)
+    }
     Scaffold(
         containerColor = pal.bg,
         topBar = {

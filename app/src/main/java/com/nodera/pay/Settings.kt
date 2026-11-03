@@ -88,6 +88,23 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             if (Store.logoMode == "custom") { Spacer(Modifier.height(8.dp)); SoftButton(tr("Загрузить другой логотип", "Upload another logo"), icon = Icons.Rounded.Upload) { logoPicker.launch("image/*") } }
         }
 
+        Section(tr("Уведомления", "Notifications")) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Статусы заявок, выводов и диспутов", "Order, withdrawal and dispute updates"), fontWeight = FontWeight.Bold, color = pal.text)
+                    Muted(tr("Пуш с номером: оплачена, отменена, вывод выполнен, диспут принят или отклонён (с причиной).", "Push with the number: paid, canceled, withdrawal done, dispute approved or rejected (with the reason)."))
+                }
+                Switch(Store.notify, { Store.applyNotify(it); syncWatcher(ctx); if (it && !canNotify(ctx)) toast(ctx, tr("Разрешите уведомления в настройках телефона", "Allow notifications in the phone settings")) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Accent))
+            }
+            Spacer(Modifier.height(8.dp))
+            Muted(tr("Без Firebase приложение само опрашивает сервер раз в 30 секунд, поэтому в шторке висит служебная заметка. На некоторых телефонах (Xiaomi, Huawei, Samsung) систему нужно попросить не усыплять приложение.", "Without Firebase the app polls the server every 30 seconds, so a service note stays in the shade. On some phones (Xiaomi, Huawei, Samsung) you need to exclude the app from battery optimization."))
+            Spacer(Modifier.height(10.dp))
+            SoftButton(tr("Настройки батареи", "Battery settings"), Modifier.fillMaxWidth(), Icons.Rounded.BatteryChargingFull) {
+                runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            }
+        }
+
         Section(tr("Поддержка", "Support")) {
             Muted(tr("Вопросы по чекам и платежам — в Telegram.", "Questions about receipts and payments — in Telegram."))
             Spacer(Modifier.height(10.dp))
@@ -101,7 +118,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             }
         }
 
-        Muted("Nodera Pay 1.1.0")
+        Muted("Nodera Pay 1.2.0")
         Spacer(Modifier.height(8.dp))
     }
 
@@ -109,7 +126,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
         onDismissRequest = { confirmDelete = false },
         title = { Text(tr("Удалить ключи?", "Delete keys?")) },
         text = { Text(tr("Приложение перестанет работать, пока вы не введёте новые ключи.", "The app will stop working until you enter new keys.")) },
-        confirmButton = { TextButton({ confirmDelete = false; Store.deleteKeys(); onDisconnected() }) { Text(tr("Удалить", "Delete"), color = Bad) } },
+        confirmButton = { TextButton({ confirmDelete = false; Store.deleteKeys(); syncWatcher(ctx); onDisconnected() }) { Text(tr("Удалить", "Delete"), color = Bad) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text(tr("Отмена", "Cancel")) } },
     )
 }

@@ -35,6 +35,7 @@ object Store {
     var icon by mutableStateOf("dark")    // dark | light
     var services by mutableStateOf(listOf<Service>())
     var testMerchant by mutableStateOf(false)
+    var notify by mutableStateOf(true)
     var onboardingSeen by mutableStateOf(false)
 
     val connected get() = apiKey.isNotBlank() && apiSecret.isNotBlank() && baseUrl.isNotBlank()
@@ -53,6 +54,7 @@ object Store {
         icon = plain.getString("icon", "dark") ?: "dark"
         onboardingSeen = plain.getBoolean("onboarding", false)
         testMerchant = plain.getBoolean("test_merchant", false)
+        notify = plain.getBoolean("notify", true)
         services = runCatching {
             val a = JSONArray(plain.getString("services", "[]"))
             (0 until a.length()).map { val o = a.getJSONObject(it); Service(o.getString("id"), o.getString("name"), o.optString("description"), o.getString("amount")) }
@@ -81,10 +83,13 @@ object Store {
     fun deleteKeys() {
         secure.edit().remove("api_key").remove("api_secret").apply()
         apiKey = ""; apiSecret = ""
+        watchPrefs().edit().clear().apply()
     }
 
     fun applyTheme(v: String) { theme = v; plain.edit().putString("theme", v).apply() }
     fun applyLang(v: String) { lang = v; plain.edit().putString("lang", v).apply() }
+    fun applyNotify(v: Boolean) { notify = v; plain.edit().putBoolean("notify", v).apply() }
+    fun watchPrefs() = app.getSharedPreferences("nodera_pay_watch", Context.MODE_PRIVATE)
     fun setOnboardingSeen() { onboardingSeen = true; plain.edit().putBoolean("onboarding", true).apply() }
     fun applyLogoMode(v: String) { logoMode = v; plain.edit().putString("logo_mode", v).apply() }
 

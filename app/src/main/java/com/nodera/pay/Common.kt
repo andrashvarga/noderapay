@@ -87,7 +87,7 @@ fun AppLogo(size: Int = 32, modifier: Modifier = Modifier) {
             if (bmp != null) Image(bmp, null, modifier.size(size.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
             else Image(painterResource(R.drawable.logo_mark), null, modifier.size(size.dp))
         }
-        else -> Image(painterResource(if (dark) R.drawable.logo_mark_dark else R.drawable.logo_mark), null, modifier.size(size.dp))
+        else -> Image(painterResource(if (dark) R.drawable.logo_mark else R.drawable.logo_mark), null, modifier.size(size.dp))
     }
 }
 
@@ -185,13 +185,45 @@ fun fixUrl(u: String?): String? {
     return if (i >= 0 && Store.baseUrl.isNotBlank()) Store.baseUrl.trimEnd('/') + u.substring(i) else u
 }
 
-/** Название «NODERA» логотипом бренда + «PAY» широким шрифтом. */
+/** Название «NODERA» и «PAY» одним шрифтом бренда (Lexend Exa), как в логотипе. */
 @Composable
 fun BrandTitle(height: Int = 14, modifier: Modifier = Modifier) {
+    val pay = height * 0.903f
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Image(painterResource(if (pal.dark) R.drawable.wordmark_light else R.drawable.wordmark_dark), "Nodera", Modifier.height(height.dp).width((height * 8.26f).dp), contentScale = ContentScale.Fit)
-        Spacer(Modifier.width((height * 0.6f).dp))
-        Text("PAY", fontWeight = FontWeight.Medium, fontSize = (height * 1.05f).sp, letterSpacing = (height * 0.28f).sp, color = Accent)
+        Spacer(Modifier.width((height * 0.9f).dp))
+        Image(painterResource(if (pal.dark) R.drawable.pay_light else R.drawable.pay_dark), "Pay", Modifier.height(pay.dp).width((pay * 4.27f).dp), contentScale = ContentScale.Fit)
+    }
+}
+
+/** Светлый ли логотип (белый на прозрачном): тогда под него нужна темная подложка, иначе его не видно. */
+private fun isLightLogo(d: android.graphics.drawable.Drawable): Boolean = runCatching {
+    val w = 32; val h = 32
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val cv = android.graphics.Canvas(bmp); d.setBounds(0, 0, w, h); d.draw(cv)
+    var n = 0; var sum = 0.0; var opaque = 0
+    for (y in 0 until h) for (x in 0 until w) {
+        val p = bmp.getPixel(x, y); val a = p ushr 24
+        if (a > 200) opaque++
+        if (a > 60) { n++; sum += (0.299 * ((p shr 16) and 255) + 0.587 * ((p shr 8) and 255) + 0.114 * (p and 255)) / 255.0 }
+    }
+    // Логотип со сплошным фоном (почти весь кадр непрозрачен) подложки не требует.
+    n > 0 && opaque < w * h * 0.85 && sum / n > 0.72
+}.getOrDefault(false)
+
+/** Логотип метода на подложке, подобранной по цвету логотипа: светлый логотип — на тёмной, тёмный — на белой. */
+@Composable
+fun MethodLogo(url: String?, modifier: Modifier = Modifier, radius: Int = 12, pad: Int = 6) {
+    val ctx = LocalContext.current
+    var dark by remember(url) { mutableStateOf(false) }
+    Box(
+        modifier.clip(RoundedCornerShape(radius.dp)).background(if (dark) Color(0xFF2A315C) else Color.White).border(1.dp, if (dark) Color(0xFF3C4580) else Color(0xFFE3E5F0), RoundedCornerShape(radius.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url != null) {
+            val req = remember(url) { coil.request.ImageRequest.Builder(ctx).data(url).allowHardware(false).listener(onSuccess = { _, r -> dark = isLightLogo(r.drawable) }).build() }
+            AsyncImage(model = req, contentDescription = null, modifier = Modifier.fillMaxSize().padding(pad.dp), contentScale = ContentScale.Fit)
+        } else Icon(Icons.Rounded.CreditCard, null, tint = Accent, modifier = Modifier.size(26.dp))
     }
 }
 
@@ -227,10 +259,8 @@ fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<I
                             .padding(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                            val logo = fixUrl(m.optString("logo"))
-                            if (logo != null) AsyncImage(logo, null, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
-                            else Icon(Icons.Rounded.CreditCard, null, tint = Accent, modifier = Modifier.size(30.dp))
+                        Box {
+                            MethodLogo(fixUrl(m.optString("logo")), Modifier.fillMaxWidth().height(68.dp))
                             if (on) Icon(Icons.Rounded.CheckCircle, null, tint = Accent, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp))
                         }
                         Text(m.getString("name"), fontWeight = FontWeight.SemiBold, color = pal.text, fontSize = 13.sp, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, minLines = 2)

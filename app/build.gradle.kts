@@ -15,8 +15,8 @@ android {
         applicationId = "com.nodera.pay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
     signingConfigs {
         if (ks.isNotEmpty()) create("release") {
@@ -29,7 +29,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Без боевого ключа release подписывается отладочным, чтобы APK можно было поставить.
+            // Свой ключ (keystore.properties из секретов Actions) либо стабильный отладочный ключ из кэша сборок — для установки поверх.
             signingConfig = if (ks.isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
