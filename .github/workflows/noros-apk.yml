@@ -1,0 +1,55 @@
+# Сборка Noros Pay (папка noros/). APK попадает в артефакт запуска и в релиз «noros-latest» (прямая ссылка для установки).
+name: Build Noros Pay APK
+on:
+  push:
+    branches: [main, claude/project-thread-uezkn1]
+    paths: ["noros/**", ".github/workflows/noros-apk.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: noros
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.14.3" }
+      # Фирменный шрифт Noros (Manrope, лицензия OFL) скачивается при сборке и кладётся в приложение.
+      - name: Font
+        run: |
+          mkdir -p app/src/main/assets/fonts
+          curl -fsSL "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf" -o app/src/main/assets/fonts/manrope.ttf \
+            || curl -fsSL "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/manrope/Manrope%5Bwght%5D.ttf" -o app/src/main/assets/fonts/manrope.ttf
+          test "$(stat -c %s app/src/main/assets/fonts/manrope.ttf)" -gt 100000
+      # Один и тот же отладочный ключ между сборками, чтобы новая версия ставилась поверх старой.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: norospay-debug-keystore-v1
+      # Боевая подпись (по желанию): секреты NRP_KEYSTORE_B64, NRP_KEYSTORE_PASSWORD, NRP_KEY_ALIAS, NRP_KEY_PASSWORD.
+      - name: Release keystore
+        env: { KS: "${{ secrets.NRP_KEYSTORE_B64 }}" }
+        if: ${{ env.KS != '' }}
+        run: |
+          echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf "storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" "$RUNNER_TEMP/release.jks" "${{ secrets.NRP_KEYSTORE_PASSWORD }}" "${{ secrets.NRP_KEY_ALIAS }}" "${{ secrets.NRP_KEY_PASSWORD }}" > keystore.properties
+      - name: Build
+        run: gradle --no-daemon assembleRelease
+      - name: Collect
+        run: |
+          mkdir out
+          cp app/build/outputs/apk/release/app-release.apk out/NorosPay.apk
+          (cd out && sha256sum NorosPay.apk > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with: { name: NorosPay-apk, path: noros/out/ }
+      - name: Publish release
+        working-directory: .
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release delete noros-latest --yes --cleanup-tag || true
+          gh release create noros-latest noros/out/NorosPay.apk noros/out/SHA256SUMS --target "$GITHUB_SHA" --prerelease --title "Noros Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NorosPay.apk на телефон и откройте (разрешите установку из этого источника)."
