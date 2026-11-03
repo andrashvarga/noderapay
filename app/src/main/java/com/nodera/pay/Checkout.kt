@@ -98,7 +98,7 @@ fun CheckoutScreen(mode: String) {
             Text(tr("Методы оплаты", "Payment methods"), fontWeight = FontWeight.Bold, color = pal.text)
             val list = methods.data
             when {
-                methods.loading && list == null -> CircularProgressIndicator(Modifier.size(24.dp))
+                methods.loading && list == null -> NeuSpinner(32.dp)
                 methods.error != null -> { ErrorNote(methods.error); SoftButton(tr("Повторить", "Retry"), icon = Icons.Rounded.Refresh) { methods.reload() } }
                 list != null -> if (list.isEmpty()) Muted(tr("В кабинете нет доступных методов оплаты.", "No payment methods are available in your account."))
                 else MethodPicker(list, selected) { selected = it }

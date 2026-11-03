@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -75,13 +76,21 @@ private fun MainShell() {
             }
         },
         bottomBar = {
-            NavigationBar(containerColor = pal.surface, modifier = Modifier.navigationBarsPadding().let { it }, windowInsets = WindowInsets(0)) {
+            Row(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp).neu(28.dp, depth = 6.dp).padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Tab.entries.forEach { t ->
-                    NavigationBarItem(
-                        selected = tab == t, onClick = { tab = t },
-                        icon = { Icon(t.icon, null) }, label = { Text(tr(t.ru, t.en), fontSize = 11.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent, indicatorColor = Accent.copy(alpha = .14f), unselectedIconColor = pal.muted, unselectedTextColor = pal.muted),
-                    )
+                    val sel = tab == t
+                    Column(
+                        Modifier.weight(1f).neu(22.dp, inset = sel, depth = 3.dp).clip(RoundedCornerShape(22.dp))
+                            .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { tab = t }
+                            .padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(t.icon, null, tint = if (sel) Accent else pal.muted, modifier = Modifier.size(24.dp))
+                        Text(tr(t.ru, t.en), fontSize = 10.5.sp, maxLines = 1, color = if (sel) Accent else pal.muted, fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium)
+                    }
                 }
             }
         },
@@ -101,7 +110,7 @@ private fun MainShell() {
 
 @Composable
 private fun RoundIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(CircleShape).background(pal.surface2).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(42.dp).neuPress(21.dp, depth = 4.dp, onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = Accent, modifier = Modifier.size(22.dp))
     }
 }

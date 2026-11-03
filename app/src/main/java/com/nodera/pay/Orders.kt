@@ -104,7 +104,7 @@ private fun TxRow(r: JSONObject, currency: String, onCancel: (() -> Unit)?, onCl
     val (label, color) = statusLabel(r.optString("status"))
     Card(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(44.dp), radius = 12, pad = 4)
+            MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(48.dp), radius = 14, pad = 5, bg = r.optStr("methodBg"), cover = r.optBoolean("methodCover"))
             Column(Modifier.weight(1f)) {
                 Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), fontWeight = FontWeight.Bold, color = pal.text)
                 Muted(shortDate(r.optString("createdAt")) + (r.optString("method").takeIf { it.isNotBlank() && it != "null" }?.let { "  ·  $it" } ?: ""))
@@ -200,7 +200,7 @@ private fun TxDetail(r: JSONObject, currency: String, onClose: () -> Unit, onCha
     Dialog(onDismissRequest = onClose, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxWidth().padding(12.dp).clip(RoundedCornerShape(24.dp)).background(pal.bg).padding(18.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(44.dp), radius = 12, pad = 4)
+                MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(48.dp), radius = 14, pad = 5, bg = r.optStr("methodBg"), cover = r.optBoolean("methodCover"))
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) { Title(tr("Заявка", "Order") + " #$id"); Muted(shortDate(f.optString("createdAt", r.optString("createdAt")))) }
                 StatusPill(label, color)

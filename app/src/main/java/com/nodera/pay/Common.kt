@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -211,18 +212,46 @@ private fun isLightLogo(d: android.graphics.drawable.Drawable): Boolean = runCat
     n > 0 && opaque < w * h * 0.85 && sum / n > 0.72
 }.getOrDefault(false)
 
-/** Логотип метода на подложке, подобранной по цвету логотипа: светлый логотип — на тёмной, тёмный — на белой. */
+fun JSONObject.optStr(k: String): String? = if (isNull(k)) null else optString(k).ifBlank { null }
+
+/** Цвет плитки метода как на платёжной странице: HEX или linear-gradient(...) из справочника методов. */
+fun tileBrush(bg: String?): Brush? {
+    if (bg.isNullOrBlank()) return null
+    val cols = Regex("#[0-9a-fA-F]{6}").findAll(bg).map { Color(android.graphics.Color.parseColor(it.value)) }.toList()
+    return when {
+        cols.isEmpty() -> null
+        cols.size == 1 -> SolidColor(cols[0])
+        else -> Brush.linearGradient(cols)
+    }
+}
+
+/**
+ * Логотип метода на плитке того же цвета, что у метода на платёжной странице (поле bg).
+ * cover = логотип занимает всю плитку; без цвета плитка нейтральная, светлый логотип получает тёмную подложку.
+ */
 @Composable
-fun MethodLogo(url: String?, modifier: Modifier = Modifier, radius: Int = 12, pad: Int = 6) {
+fun MethodLogo(url: String?, modifier: Modifier = Modifier, radius: Int = 12, pad: Int = 6, bg: String? = null, cover: Boolean = false) {
     val ctx = LocalContext.current
-    var dark by remember(url) { mutableStateOf(false) }
+    val brush = remember(bg) { runCatching { tileBrush(bg) }.getOrNull() }
+    var darkFallback by remember(url) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(radius.dp)
+    val back: Brush = when {
+        cover -> SolidColor(pal.surface2)
+        brush != null -> brush
+        darkFallback -> SolidColor(Color(0xFF2A315C))
+        else -> SolidColor(pal.surface2)
+    }
     Box(
-        modifier.clip(RoundedCornerShape(radius.dp)).background(if (dark) Color(0xFF2A315C) else Color.White).border(1.dp, if (dark) Color(0xFF3C4580) else Color(0xFFE3E5F0), RoundedCornerShape(radius.dp)),
+        modifier.neu(radius.dp, depth = 3.dp).padding(2.dp).clip(shape).background(back).border(1.dp, Color.Black.copy(alpha = .08f), shape),
         contentAlignment = Alignment.Center,
     ) {
         if (url != null) {
-            val req = remember(url) { coil.request.ImageRequest.Builder(ctx).data(url).allowHardware(false).listener(onSuccess = { _, r -> dark = isLightLogo(r.drawable) }).build() }
-            AsyncImage(model = req, contentDescription = null, modifier = Modifier.fillMaxSize().padding(pad.dp), contentScale = ContentScale.Fit)
+            val req = remember(url) {
+                coil.request.ImageRequest.Builder(ctx).data(url).allowHardware(false)
+                    .listener(onSuccess = { _, r -> if (brush == null) darkFallback = isLightLogo(r.drawable) }).build()
+            }
+            if (cover) AsyncImage(model = req, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            else AsyncImage(model = req, contentDescription = null, modifier = Modifier.fillMaxSize().padding(pad.dp), contentScale = ContentScale.Fit)
         } else Icon(Icons.Rounded.CreditCard, null, tint = Accent, modifier = Modifier.size(26.dp))
     }
 }
@@ -236,8 +265,7 @@ fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<I
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val all = selected.isEmpty()
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (all) Accent.copy(alpha = .14f) else pal.surface)
-                .border(1.5.dp, if (all) Accent else pal.line, RoundedCornerShape(16.dp)).clickable { onChange(emptySet()) }.padding(14.dp),
+            Modifier.fillMaxWidth().neuToggle(all, 20.dp) { onChange(emptySet()) }.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             IconBadge(Icons.Rounded.DoneAll)
@@ -254,13 +282,11 @@ fun MethodPicker(methods: List<JSONObject>, selected: Set<Int>, onChange: (Set<I
                     val id = m.getInt("id")
                     val on = id in selected
                     Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(if (on) Accent.copy(alpha = .14f) else pal.surface)
-                            .border(1.5.dp, if (on) Accent else pal.line, RoundedCornerShape(16.dp)).clickable { onChange(if (on) selected - id else selected + id) }
-                            .padding(10.dp),
+                        Modifier.weight(1f).neuToggle(on, 20.dp) { onChange(if (on) selected - id else selected + id) }.padding(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box {
-                            MethodLogo(fixUrl(m.optString("logo")), Modifier.fillMaxWidth().height(68.dp))
+                            MethodLogo(fixUrl(m.optString("logo")), Modifier.fillMaxWidth().height(68.dp), bg = m.optStr("bg"), cover = m.optBoolean("cover"))
                             if (on) Icon(Icons.Rounded.CheckCircle, null, tint = Accent, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp))
                         }
                         Text(m.getString("name"), fontWeight = FontWeight.SemiBold, color = pal.text, fontSize = 13.sp, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, minLines = 2)
