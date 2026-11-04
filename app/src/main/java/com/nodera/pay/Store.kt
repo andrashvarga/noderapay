@@ -35,6 +35,13 @@ object Store {
     var icon by mutableStateOf("dark")    // dark | light
     var services by mutableStateOf(listOf<Service>())
     var testMerchant by mutableStateOf(false)
+    /** Фиатная валюта приёма (по гео кабинета) и валюта выплат; определяются по заявкам и выпискам, а не по USDT-балансу. */
+    var fiat by mutableStateOf("")
+    var payoutFiat by mutableStateOf("")
+    val payoutCur get() = payoutFiat.ifBlank { fiat }
+    /** Сколько заявок и выплат сейчас активно: для значков на вкладках и плашки «активная». */
+    var activeOrders by mutableStateOf(0)
+    var activePayouts by mutableStateOf(0)
     var notify by mutableStateOf(true)
     var onboardingSeen by mutableStateOf(false)
 
@@ -54,6 +61,8 @@ object Store {
         icon = plain.getString("icon", "dark") ?: "dark"
         onboardingSeen = plain.getBoolean("onboarding", false)
         testMerchant = plain.getBoolean("test_merchant", false)
+        fiat = plain.getString("fiat", "") ?: ""
+        payoutFiat = plain.getString("payout_fiat", "") ?: ""
         notify = plain.getBoolean("notify", true)
         services = runCatching {
             val a = JSONArray(plain.getString("services", "[]"))
@@ -84,6 +93,9 @@ object Store {
         secure.edit().remove("api_key").remove("api_secret").apply()
         apiKey = ""; apiSecret = ""
         watchPrefs().edit().clear().apply()
+        // Выплаты и валюта относятся к ключам мерчанта: со сменой ключей они очищаются.
+        plain.edit().remove("payouts").remove("fiat").remove("payout_fiat").apply()
+        fiat = ""; payoutFiat = ""; activeOrders = 0; activePayouts = 0
     }
 
     fun applyTheme(v: String) { theme = v; plain.edit().putString("theme", v).apply() }
@@ -111,12 +123,34 @@ object Store {
         set(if (v == "light") "IconDark" else "IconLight", false)
     }
 
+    fun noteFiat(c: String?) { if (isFiat(c) && c!!.uppercase() != fiat) { fiat = c.uppercase(); plain.edit().putString("fiat", fiat).apply() } }
+    fun notePayoutFiat(c: String?) { if (isFiat(c) && c!!.uppercase() != payoutFiat) { payoutFiat = c.uppercase(); plain.edit().putString("payout_fiat", payoutFiat).apply() } }
+
+    // ---- Выплаты, созданные в приложении (в API мерчанта списка выплат нет) ----
+    private fun readList(key: String): MutableList<JSONObject> = synchronized(this) {
+        runCatching { val a = JSONArray(plain.getString(key, "[]")); (0 until a.length()).map { a.getJSONObject(it) }.toMutableList() }.getOrDefault(mutableListOf())
+    }
+    private fun writeList(key: String, list: List<JSONObject>) = synchronized(this) {
+        val a = JSONArray(); list.forEach { a.put(it) }
+        plain.edit().putString(key, a.toString()).apply()
+    }
+    fun payouts(): List<JSONObject> = readList("payouts")
+    fun putPayout(r: JSONObject) = synchronized(this) {
+        val l = readList("payouts"); val old = l.indexOfFirst { it.optInt("id") == r.optInt("id") }
+        if (old >= 0) l[old] = JSONObject(r.toString()) else l.add(JSONObject(r.toString()))
+        writeList("payouts", l.sortedByDescending { it.optInt("id") }.take(300))
+    }
+
     fun saveServices(list: List<Service>) {
         services = list
         val a = JSONArray(); list.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name).put("description", it.description).put("amount", it.amount)) }
         plain.edit().putString("services", a.toString()).apply()
     }
 }
+
+private val CRYPTO = setOf("BTC", "ETH", "TRX", "TON", "BNB", "SOL", "XRP", "LTC", "DOGE", "ADA", "DAI")
+/** Фиатная ли валюта: три буквы и не криптовалюта (USDT из четырёх букв отсекается сам). */
+fun isFiat(c: String?): Boolean = c != null && Regex("^[A-Za-z]{3}$").matches(c) && c.uppercase() !in CRYPTO
 
 /** Двуязычные подписи: русский по умолчанию, английский по выбору в настройках. */
 fun tr(ru: String, en: String): String = if (Store.lang == "ru") ru else en

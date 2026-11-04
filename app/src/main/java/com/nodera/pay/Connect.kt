@@ -41,7 +41,6 @@ fun ConnectScreen(onConnected: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Spacer(Modifier.height(8.dp))
-        AppLogo(56)
         BrandTitle(20)
         Muted(tr("Терминал приёма платежей. Введите ключи из личного кабинета мерчанта Nodera (раздел «Ключи API») — без них приложение не работает.",
             "Payment terminal. Enter the keys from your Nodera merchant account (“API keys”) — the app does not work without them."))

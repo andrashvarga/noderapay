@@ -47,8 +47,8 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching {
             val src = ctx.contentResolver.openInputStream(uri)!!.use { BitmapFactory.decodeStream(it) }
-            val side = 256
-            val k = minOf(1f, side / maxOf(src.width, src.height).toFloat())
+            // Горизонтальный логотип до 720 × 240 px, прозрачность сохраняется.
+            val k = minOf(1f, 720f / src.width, 240f / src.height)
             val bmp = Bitmap.createScaledBitmap(src, (src.width * k).toInt().coerceAtLeast(1), (src.height * k).toInt().coerceAtLeast(1), true)
             val out = ByteArrayOutputStream(); bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
             Store.saveCustomLogo(out.toByteArray())
@@ -103,15 +103,20 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             PreviewRow(
                 listOf(
-                    PreviewItem("nodera", "Nodera") { LogoPreview("nodera") },
+                    PreviewItem("nodera", "Nodera Pay") { LogoPreview("nodera") },
                     PreviewItem("none", tr("Без логотипа", "None")) { LogoPreview("none") },
                     PreviewItem("custom", tr("Свой", "Custom")) { LogoPreview("custom") },
                 ), Store.logoMode,
             ) {
                 if (it == "custom" && !Store.logoFile.exists()) logoPicker.launch("image/*") else Store.applyLogoMode(it)
             }
+            Spacer(Modifier.height(8.dp))
+            Muted(tr("Для своего логотипа лучше всего подходит горизонтальный PNG с прозрачным фоном, 600 × 160 px (соотношение примерно 4 : 1), до 1 МБ. Слишком большой файл приложение само уменьшит до 720 × 240 px. Выбирайте нейтральный цвет или логотип с собственным фоном, чтобы он читался и на светлой, и на тёмной теме.",
+                "For your own logo a horizontal PNG with a transparent background works best: 600 × 160 px (about 4 : 1), under 1 MB. A larger file is shrunk to 720 × 240 px. Use a neutral colour or a logo with its own background so it reads on both light and dark themes."))
             if (Store.logoMode == "custom") { Spacer(Modifier.height(8.dp)); SoftButton(tr("Загрузить другой логотип", "Upload another logo"), icon = Icons.Rounded.Upload) { logoPicker.launch("image/*") } }
         }
+
+        UpdatesSection()
 
         Section(tr("Уведомления", "Notifications")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -143,7 +148,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             }
         }
 
-        Muted("Nodera Pay 1.5.0")
+        Muted("Nodera Pay 1.6.0")
         Spacer(Modifier.height(8.dp))
     }
 
@@ -223,17 +228,16 @@ private fun IconPreview(bg: Color) {
 @Composable
 private fun LogoPreview(kind: String) {
     Box(Modifier.fillMaxSize().background(pal.bg), contentAlignment = Alignment.TopStart) {
-        Row(Modifier.fillMaxWidth().padding(10.dp, 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().padding(10.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
             when (kind) {
-                "nodera" -> androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_mark), null, Modifier.size(24.dp))
+                "nodera" -> BrandTitle(7)
                 "custom" -> {
                     val bmp = remember(Store.logoVersion) { runCatching { BitmapFactory.decodeFile(Store.logoFile.path)?.asImageBitmap() }.getOrNull() }
-                    if (bmp != null) androidx.compose.foundation.Image(bmp, null, Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)))
+                    if (bmp != null) androidx.compose.foundation.Image(bmp, null, Modifier.height(22.dp).widthIn(max = 80.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit, alignment = Alignment.CenterStart)
                     else Icon(Icons.Rounded.AddPhotoAlternate, null, tint = Accent, modifier = Modifier.size(24.dp))
                 }
                 else -> {}
             }
-            Box(Modifier.height(7.dp).width(if (kind == "none") 56.dp else 34.dp).clip(RoundedCornerShape(4.dp)).background(pal.muted.copy(alpha = .5f)))
         }
         Box(Modifier.align(Alignment.BottomCenter).padding(10.dp).fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(pal.surface))
     }

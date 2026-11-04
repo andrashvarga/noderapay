@@ -1,0 +1,8 @@
+[
+  {"code": 7, "name": "1.6.0", "date": "2026-11-04",
+   "ru": ["Раздел «Выплаты»: создание, активные и архив, цвет и обводка по статусу", "Уведомления по выплатам: в работе, выполнена, отменена", "Проверка обновлений: автоматически и кнопкой в настройках, окно при запуске и уведомление", "Установка новой версии прямо из приложения, поверх старой", "История изменений в настройках", "Выгрузка CSV из архива заявок и выплат", "Плашка и значок «активная заявка или выплата», не больше трёх активных сверху", "Валюта фиатная по гео кабинета вместо USDT", "Логотип только «Nodera Pay», подсказка размера своего логотипа", "Перекати-поле только на пустой вкладке «Активные»"],
+   "en": ["Payouts section: create, active and archive, colour and outline by status", "Payout notifications: in progress, completed, canceled", "Update check: automatic and by a button in settings, a prompt on launch and a notification", "Install the new version from the app, on top of the old one", "Changelog in settings", "CSV export from the orders and payouts archive", "“Active order or payout” banner and badge, at most three active on top", "Fiat currency by account geo instead of USDT", "Logo is just “Nodera Pay”, size hint for your own logo", "Tumbleweed only on an empty “Active” tab"]},
+  {"code": 6, "name": "1.5.0", "date": "2026-11-03",
+   "ru": ["QR и ссылка в одном разделе, таймеры, статусы, автообновление, превью настроек"],
+   "en": ["QR and link in one section, timers, statuses, auto-refresh, settings previews"]}
+]

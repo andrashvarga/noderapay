@@ -45,46 +45,58 @@ fun OrdersScreen() {
     var open by remember { mutableStateOf<JSONObject?>(null) }
     var toCancel by remember { mutableStateOf<JSONObject?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
-    val balance = rememberLoader(Store.apiKey) { Api.balance() }
-    val currency = balance.data?.optString("currency").orEmpty()
+    LaunchedEffect(Unit) { Api.resolveFiat() }
+    var csv by remember { mutableStateOf(false) }
+    val currency = Store.fiat
     val names = listOf(tr("Активные", "Active"), tr("Архив", "Archive"), tr("Диспуты", "Disputes"))
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Title(tr("Заявки", "Orders"))
+            if (Store.activeOrders > 0) ActiveBanner(
+                if (Store.activeOrders == 1) tr("Активная заявка", "Active order") else tr("Активных заявок: ${Store.activeOrders}", "Active orders: ${Store.activeOrders}"), Warn,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 names.forEachIndexed { i, n -> Chip(n, pager.currentPage == i) { scope.launch { pager.animateScrollToPage(i) } } }
             }
         }
         HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
-            OrdersPage(kinds[page], currency, refreshKey, onOpen = { open = it }, onCancel = { toCancel = it })
+            OrdersPage(kinds[page], currency, refreshKey, onOpen = { open = it }, onCancel = { toCancel = it }, onCsv = { csv = true })
         }
     }
     open?.let { TxDetail(it, currency, onClose = { open = null }, onChanged = { refreshKey++ }) }
+    if (csv) CsvDialog("transactions", onClose = { csv = false })
     toCancel?.let { CancelConfirm(it, onClose = { toCancel = null }) { toCancel = null; refreshKey++ } }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OrdersPage(kind: String, currency: String, refreshKey: Int, onOpen: (JSONObject) -> Unit, onCancel: (JSONObject) -> Unit) {
+private fun OrdersPage(kind: String, currency: String, refreshKey: Int, onOpen: (JSONObject) -> Unit, onCancel: (JSONObject) -> Unit, onCsv: () -> Unit) {
     val list = rememberLoader(kind to refreshKey) {
         if (kind == "appeals") Api.appeals().getJSONArray("rows").objects() else Api.transactions(kind, 1).getJSONArray("rows").objects()
     }
     // Статусы должны быть актуальными: активные обновляем каждые 5 секунд, остальное реже.
     AutoRefresh(if (kind == "active") 5000 else 10000) { list.reload(true) }
     PullToRefreshBox(isRefreshing = list.loading, onRefresh = { list.reload() }, modifier = Modifier.fillMaxSize()) {
-        val rows = list.data
+        val all = list.data
+        // Сверху только три последние активные заявки: новая вытесняет самую старую.
+        val rows = if (kind == "active") all?.take(ACTIVE_LIMIT) else all
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+            if (kind == "archive") item { SoftButton(tr("Выгрузить CSV", "Export CSV"), Modifier.fillMaxWidth(), Icons.Rounded.Download, onClick = onCsv) }
             if (list.error != null) item { ErrorNote(list.error) }
             if (rows != null && rows.isEmpty()) item {
+                // Перекати-поле только на вкладке «Активные» и только когда активных заявок действительно нет.
                 when (kind) {
                     "archive" -> Card { Muted(tr("Архив пуст.", "Archive is empty.")) }
-                    "active" -> Tumbleweed(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section."))
-                    else -> Tumbleweed(tr("Диспутов нет", "No disputes"), tr("Тишина и покой. Споров нет.", "Quiet and calm. No disputes."))
+                    "active" -> { if (Store.activeOrders == 0) Tumbleweed(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section.")) }
+                    else -> Card { Muted(tr("Диспутов нет.", "No disputes.")) }
                 }
             }
             items(rows ?: emptyList()) { r ->
                 if (kind == "appeals") AppealRow(r) else TxRow(r, currency, if (canCancel(r)) ({ onCancel(r) }) else null) { onOpen(r) }
+            }
+            if (kind == "active" && (all?.size ?: 0) > ACTIVE_LIMIT) item {
+                Muted(tr("Показаны $ACTIVE_LIMIT последние из ${all!!.size}. Остальные попадут в архив, когда завершатся.", "Showing the latest $ACTIVE_LIMIT of ${all!!.size}. The rest move to the archive when finished."))
             }
         }
     }
@@ -123,9 +135,9 @@ private fun TxRow(r: JSONObject, currency: String, onCancel: (() -> Unit)?, onCl
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MethodLogo(fixUrl(r.optString("methodLogo")), Modifier.size(48.dp), radius = 14, pad = 5, bg = r.optStr("methodBg"), cover = r.optBoolean("methodCover"))
             Column(Modifier.weight(1f)) {
-                Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), fontWeight = FontWeight.Bold, color = pal.text)
+                Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), curOf(r)), fontWeight = FontWeight.Bold, color = pal.text)
                 Muted(shortDate(r.optString("createdAt")) + (r.optString("method").takeIf { it.isNotBlank() && it != "null" }?.let { "  ·  $it" } ?: ""))
-                if (r.optString("status") == "completed") Text(tr("Зачислено ", "Credited ") + money(r.optDouble("amount") - r.optDouble("fee", 0.0), r.optString("currency", currency)), color = Ok, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                if (r.optString("status") == "completed") Text(tr("Зачислено ", "Credited ") + money(r.optDouble("amount") - r.optDouble("fee", 0.0), curOf(r)), color = Ok, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             StatusPill(label, color)
             if (onCancel != null) Box(
@@ -203,7 +215,7 @@ private fun TxDetail(r: JSONObject, currency: String, onClose: () -> Unit, onCha
     val f = full.data ?: r
     val status = f.optString("status", r.optString("status"))
     val (label, color) = statusLabel(status)
-    val cur = f.optString("currency", r.optString("currency", currency))
+    val cur = curOf(f).ifBlank { curOf(r) }
     val amount = f.optDouble("amount", r.optDouble("amount"))
     val fee = f.optDouble("fee", r.optDouble("fee", 0.0)).let { if (it.isNaN()) 0.0 else it }
     val link = r.optString("link")

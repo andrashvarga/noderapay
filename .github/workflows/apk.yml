@@ -2,7 +2,7 @@
 name: Build APK
 on:
   push:
-    branches: [main]
+    branches: [main, claude/project-thread-ypu7dv]
   workflow_dispatch:
 permissions:
   contents: write
@@ -34,10 +34,13 @@ jobs:
           mkdir out
           cp app/build/outputs/apk/release/app-release.apk out/NoderaPay.apk
           (cd out && sha256sum NoderaPay.apk > SHA256SUMS)
+          # update.json: приложение по нему узнаёт о новой версии (код, хэш, ссылка, список изменений).
+          SHA=$(cut -d' ' -f1 out/SHA256SUMS)
+          jq --arg sha "$SHA" --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/NoderaPay.apk" '{sha256:$sha, apkUrl:$url, releases:.}' app/src/main/assets/changelog.json > out/update.json
       - uses: actions/upload-artifact@v4
         with: { name: NoderaPay-apk, path: out/ }
       - name: Publish release
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest out/NoderaPay.apk out/SHA256SUMS --title "Nodera Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NoderaPay.apk на телефон и откройте (разрешите установку из этого источника)."
+          for i in 1 2 3; do gh release create latest out/NoderaPay.apk out/SHA256SUMS out/update.json --title "Nodera Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NoderaPay.apk на телефон и откройте (разрешите установку из этого источника)." && break; sleep 10; done
