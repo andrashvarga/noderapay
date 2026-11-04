@@ -28,8 +28,7 @@ fun ConnectScreen(onConnected: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Spacer(Modifier.height(8.dp))
-        AppLogo(56)
-        BrandTitle(20)
+        BrandTitle(24)
         Muted(tr("Терминал приёма платежей для мерчантов Noros. Введите ключи из личного кабинета my.noros.org — без них приложение не работает.",
             "Payment terminal for Noros merchants. Enter the keys from your my.noros.org account — the app does not work without them."))
         Field(key, { key = it.trim() }, "api_key", keyboard = KeyboardOptions(keyboardType = KeyboardType.Password))

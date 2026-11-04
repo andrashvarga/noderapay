@@ -35,9 +35,9 @@ import java.util.UUID
 @Composable
 fun CheckoutScreen() {
     val scope = rememberCoroutineScope()
-    val balance = rememberLoader(Store.apiKey) { Api.balance() }
+    LaunchedEffect(Unit) { Api.resolveFiat() }
     val active = rememberLoader(Store.apiKey) { Api.transactions("active", 1).getJSONArray("rows").objects() }
-    val currency = balance.data?.optString("currency").orEmpty()
+    val currency = Store.fiat
     AutoRefresh(5000) { active.reload(true) }
 
     var source by rememberSaveable { mutableStateOf("amount") }
@@ -77,16 +77,17 @@ fun CheckoutScreen() {
 
     PullToRefreshBox(
         isRefreshing = refreshing,
-        onRefresh = { scope.launch { refreshing = true; active.reload(); balance.reload(); kotlinx.coroutines.delay(700); refreshing = false } },
+        onRefresh = { scope.launch { refreshing = true; active.reload(); Api.resolveFiat(); kotlinx.coroutines.delay(700); refreshing = false } },
         modifier = Modifier.fillMaxSize(),
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Title(tr("Приём оплаты", "Accept payment"))
             Muted(tr("Создайте заявку: клиент сканирует QR или открывает ссылку и попадает на платёжную страницу.", "Create an order: the customer scans the QR or opens the link and lands on the payment page."))
 
-            val rows = active.data ?: emptyList()
+            // Не больше трёх активных заявок: новая вытесняет самую старую.
+            val rows = (active.data ?: emptyList()).take(ACTIVE_LIMIT)
             if (rows.isNotEmpty() || finished.isNotEmpty()) {
-                Text(tr("Текущие заявки", "Current orders"), fontWeight = FontWeight.Bold, color = pal.text)
+                ActiveBanner(if (rows.size == 1) tr("Активная заявка", "Active order") else tr("Активных заявок: ${rows.size}", "Active orders: ${rows.size}"), Warn)
                 finished.entries.sortedByDescending { it.value.second }.forEach { (id, v) -> FinishedRow(v.first, currency) { openRow = v.first } }
                 rows.forEach { r -> ActiveRow(r, currency, now, totals) { openRow = r } }
             }
@@ -169,7 +170,7 @@ private fun ActiveRow(r: org.json.JSONObject, currency: String, now: Long, total
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TimerRing(remaining.coerceAtLeast(0), totals[id] ?: remaining, 58.dp, 4.5.dp, 12)
             Column(Modifier.weight(1f)) {
-                Text("#$id  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), fontWeight = FontWeight.Bold, color = pal.text)
+                Text("#$id  ·  " + money(r.optDouble("amount"), curOf(r)), fontWeight = FontWeight.Bold, color = pal.text)
                 Muted(r.optStr("method") ?: tr("Клиент выберет метод", "Customer picks the method"))
             }
             StatusPill(label, color)
@@ -187,7 +188,7 @@ private fun FinishedRow(r: org.json.JSONObject, currency: String, onClick: () ->
             ResultBadge(ok, 54.dp)
             Column(Modifier.weight(1f)) {
                 Text(if (ok) tr("Оплата прошла успешно", "Payment successful") else tr("Заявка отменена", "Order canceled"), fontWeight = FontWeight.ExtraBold, color = color)
-                Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), r.optString("currency", currency)), color = pal.text, fontSize = 14.sp)
+                Text("#${r.optInt("id")}  ·  " + money(r.optDouble("amount"), curOf(r)), color = pal.text, fontSize = 14.sp)
             }
         }
     }
@@ -231,7 +232,7 @@ private fun OrderPanel(initial: org.json.JSONObject, currency: String, onBack: (
         Card(tint = if (final) color else null) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Muted(tr("Сумма к оплате", "Amount due"))
-                Text(money(amount, live.optString("currency", currency)), fontWeight = FontWeight.ExtraBold, fontSize = 34.sp, color = pal.text)
+                Text(money(amount, curOf(live)), fontWeight = FontWeight.ExtraBold, fontSize = 34.sp, color = pal.text)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (logo != null) MethodLogo(fixUrl(logo), Modifier.size(40.dp), radius = 12, pad = 4, bg = bg, cover = cover)
@@ -282,7 +283,7 @@ private fun ServiceCard(s: Service, currency: String, onClose: () -> Unit) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.surface).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            AppLogo(40)
+            HeaderBrand(20)
             Text(s.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = pal.text, textAlign = TextAlign.Center)
             if (s.description.isNotBlank()) Text(s.description, color = pal.muted, textAlign = TextAlign.Center)
             Text(money(s.amount.toDoubleOrNull() ?: 0.0, currency), fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, color = Accent)

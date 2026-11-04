@@ -66,6 +66,89 @@ object Api {
 
     suspend fun balance() = obj("GET", "/balance")
 
+    /**
+     * Фиатная валюта кабинета. Баланс Noros в USDT, поэтому валюту берём из заявок (currency), выписок CSV (TerminalCurrency)
+     * или полей баланса, если они там есть, но никогда не USDT.
+     */
+    suspend fun resolveFiat() {
+        if (Store.fiat.isNotBlank() && Store.payoutFiat.isNotBlank()) return
+        runCatching {
+            val b = balance()
+            listOf("terminalCurrency", "payoutCurrency", "fiatCurrency", "currency").forEach { k -> val v = b.optString(k); if (isFiat(v)) { Store.setFiat(v); Store.setPayoutFiat(v); return@forEach } }
+        }
+        Store.orders().firstOrNull { isFiat(it.optString("currency")) }?.let { Store.setFiat(it.optString("currency")) }
+        if (Store.payoutFiat.isBlank()) runCatching { csvCurrency("payouts")?.let { Store.setPayoutFiat(it); if (Store.fiat.isBlank()) Store.setFiat(it) } }
+        if (Store.fiat.isBlank()) runCatching { csvCurrency("transactions")?.let { Store.setFiat(it) } }
+    }
+
+    private suspend fun csvCurrency(kind: String): String? {
+        val now = java.time.Instant.now()
+        val text = String(exportCsv(kind, now.minusSeconds(30L * 86400), now, "created", null), Charsets.UTF_8)
+        val lines = text.lines().filter { it.isNotBlank() }
+        if (lines.size < 2) return null
+        val head = lines[0].split(';')
+        val idx = head.indexOfFirst { it.contains("currency", true) && !it.contains("merchant", true) }
+        if (idx < 0) return null
+        return lines.drop(1).map { it.split(';').getOrNull(idx)?.trim('"') }.firstOrNull { isFiat(it) }?.uppercase()
+    }
+
+    /** Выписка CSV за период (до 31 дня): /export/payouts или /export/transactions. */
+    suspend fun exportCsv(kind: String, from: java.time.Instant, to: java.time.Instant, dateField: String, status: String?): ByteArray = withContext(Dispatchers.IO) {
+        val q = StringBuilder("?from=${from.truncatedTo(java.time.temporal.ChronoUnit.SECONDS)}&to=${to.truncatedTo(java.time.temporal.ChronoUnit.SECONDS)}&dateField=$dateField")
+        if (!status.isNullOrBlank()) q.append("&status=$status")
+        val req = Request.Builder().url("${Store.baseUrl.trimEnd('/')}/api/v1/export/$kind$q").header("api_key", Store.apiKey).header("api_secret_key", Store.apiSecret).get().build()
+        try {
+            http.newCall(req).execute().use { r ->
+                val body = r.body?.bytes() ?: ByteArray(0)
+                if (!r.isSuccessful) {
+                    val msg = runCatching { JSONObject(String(body)).optString("message") }.getOrNull()?.ifBlank { null } ?: when (r.code) {
+                        429 -> tr("Выписка уже формируется. Повторите через ${r.header("Retry-After") ?: "несколько"} сек.", "A statement is already being prepared. Retry in ${r.header("Retry-After") ?: "a few"} s.")
+                        401, 403 -> tr("Нет доступа к выпискам: проверьте ключи и права.", "No access to statements: check the keys and permissions.")
+                        else -> "HTTP ${r.code}"
+                    }
+                    throw ApiException(msg, r.code.toString())
+                }
+                body
+            }
+        } catch (e: ApiException) { throw e } catch (e: Exception) {
+            throw ApiException(tr("Нет связи с сервером Noros. Проверьте интернет.", "Cannot reach the Noros server. Check your connection."))
+        }
+    }
+
+    // ---- Выплаты: POST /payout, GET/DELETE /payout/{id} ----
+    private val PAYOUT_ACTIVE = setOf("Pending", "Processing")
+
+    suspend fun createPayout(amount: Double, number: String, bank: String, owner: String): JSONObject {
+        val uid = "po-" + java.util.UUID.randomUUID().toString().take(10)
+        val r = obj("POST", "/payout", JSONObject().put("amount", amount).put("number", number).put("bankname", bank).put("owner", owner).put("uid", uid))
+        val row = JSONObject(r.toString()); if (!row.has("uid") || row.isNull("uid")) row.put("uid", uid)
+        Store.putPayout(row)
+        return row
+    }
+
+    suspend fun payout(id: Int): JSONObject {
+        val row = obj("GET", "/payout/$id")
+        Store.putPayout(row)
+        return row
+    }
+
+    suspend fun cancelPayout(id: Int): JSONObject {
+        val r = obj("DELETE", "/payout/$id")
+        Store.putPayout(r)
+        return r
+    }
+
+    /** Выплаты, созданные в приложении: активные обновляются запросами к Noros, закрытые берутся из памяти. */
+    suspend fun payoutRows(kind: String): List<JSONObject> = coroutineScope {
+        val fresh = Store.payouts().map { r ->
+            async { if (r.optString("status") in PAYOUT_ACTIVE) runCatching { payout(r.getInt("id")) }.getOrDefault(r) else r }
+        }.awaitAll()
+        Store.activePayouts = fresh.count { it.optString("status") in PAYOUT_ACTIVE }
+        Store.activeOrders = fresh.count { it.optString("status") in ACTIVE }
+        fresh.filter { if (kind == "active") it.optString("status") in PAYOUT_ACTIVE else if (kind == "archive") it.optString("status") !in PAYOUT_ACTIVE else true }
+            .sortedByDescending { it.optInt("id") }
+    }
+
     // ---- Методы (банки): нужны для логотипов в заявках ----
     private var banksCache: List<JSONObject>? = null
     private suspend fun banks(): List<JSONObject> {
@@ -79,8 +162,7 @@ object Api {
     // ---- Создание ссылки ----
     suspend fun createLink(amount: Double, orderId: String): JSONObject {
         val r = obj("POST", "/widget", JSONObject().put("amount", amount).put("orderId", orderId))
-        val cur = runCatching { balance().optString("currency") }.getOrDefault("")
-        val rec = JSONObject().put("id", r.getInt("id")).put("link", r.getString("link")).put("amount", amount).put("currency", cur)
+        val rec = JSONObject().put("id", r.getInt("id")).put("link", r.getString("link")).put("amount", amount).put("currency", Store.fiat)
             .put("orderId", orderId).put("status", "created").put("createdAt", java.time.Instant.now().toString())
         Store.putOrder(rec)
         return r
@@ -105,6 +187,7 @@ object Api {
             }
         }
         if (!o.has("fee")) o.put("fee", 0.0)
+        if (isFiat(o.optString("currency"))) Store.setFiat(o.optString("currency"))
         return o
     }
 
@@ -135,6 +218,7 @@ object Api {
         val fresh = Store.orders().map { r ->
             async { if (r.optString("status") in ACTIVE) runCatching { transaction(r.getInt("id")) }.getOrDefault(r) else r }
         }.awaitAll()
+        Store.activeOrders = fresh.count { it.optString("status") in ACTIVE }
         fresh.filter { if (kind == "active") it.optString("status") in ACTIVE else if (kind == "archive") it.optString("status") !in ACTIVE else true }
             .sortedByDescending { it.optInt("id") }
     }

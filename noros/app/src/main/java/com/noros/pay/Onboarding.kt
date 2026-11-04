@@ -43,10 +43,11 @@ import kotlinx.coroutines.launch
 private class Slide(val icon: ImageVector, val ru: String, val en: String, val ruText: String, val enText: String, val target: Int, val mock: Int)
 
 private val slides = listOf(
-    Slide(Icons.Rounded.Key, "Подключите ключи", "Connect your keys", "Введите api_key и api_secret_key из кабинета my.noros.org. Без них терминал не работает.", "Enter the api_key and api_secret_key from your my.noros.org account. The terminal does not work without them.", 2, 0),
-    Slide(Icons.Rounded.QrCode2, "QR и ссылка в одном", "QR and link in one", "Введите сумму: заявка покажет QR, таймер и кнопку «Поделиться ссылкой». Метод оплаты клиент выберет на платёжной странице Noros.", "Enter the amount: the order shows a QR, a timer and a “Share link” button. The customer picks the payment method on the Noros payment page.", 1, 1),
-    Slide(Icons.Rounded.Storefront, "Услуги и товары", "Services", "Сохраните услуги с готовой суммой, например «Ремонт ПК — 1000». Покажите карточку клиенту и создайте заявку.", "Save services with preset prices, e.g. “PC repair — 1000”. Show the card to the customer and create an order.", 1, 3),
-    Slide(Icons.Rounded.Receipt, "Заявки и диспуты", "Orders and disputes", "Здесь заявки, созданные в приложении. Листайте вкладки свайпом, тяните вниз для обновления. Если клиент оплатил, а платёж не подтверждён — откройте диспут и приложите чек.", "Orders created in the app. Swipe between tabs and pull down to refresh. If the customer paid but it is not confirmed — open a dispute and attach the receipt.", 0, 4),
+    Slide(Icons.Rounded.Key, "Подключите ключи", "Connect your keys", "Введите api_key и api_secret_key из кабинета my.noros.org. Без них терминал не работает. Ключи только удаляются и вводятся заново.", "Enter the api_key and api_secret_key from your my.noros.org account. The terminal does not work without them. Keys can only be deleted and re-entered.", 3, 0),
+    Slide(Icons.Rounded.QrCode2, "QR и ссылка в одном", "QR and link in one", "Введите сумму: заявка покажет QR, таймер и кнопку «Поделиться ссылкой». Метод оплаты клиент выберет на платёжной странице Noros. Валюта берётся из вашего кабинета.", "Enter the amount: the order shows a QR, a timer and a “Share link” button. The customer picks the payment method on the Noros payment page. The currency comes from your account.", 2, 1),
+    Slide(Icons.Rounded.Storefront, "Услуги и товары", "Services", "Сохраните услуги с готовой суммой, например «Ремонт ПК — 1000». Покажите карточку клиенту и создайте заявку.", "Save services with preset prices, e.g. “PC repair — 1000”. Show the card to the customer and create an order.", 2, 3),
+    Slide(Icons.Rounded.Receipt, "Заявки и диспуты", "Orders and disputes", "Здесь заявки, созданные в приложении. Листайте вкладки свайпом, тяните вниз для обновления. Если клиент оплатил, а платёж не подтверждён — откройте диспут и приложите чек. Сверху видно не больше трёх активных заявок, остальные ждут в архиве; из архива можно выгрузить CSV.", "Orders created in the app. Swipe between tabs and pull down to refresh. If the customer paid but it is not confirmed — open a dispute and attach the receipt. At most three active orders show on top, the rest wait in the archive; the archive can be exported to CSV.", 0, 4),
+    Slide(Icons.Rounded.NorthEast, "Выплаты клиентам", "Payouts to customers", "Нажмите «Новая выплата», введите сумму, карту или телефон, банк и ФИО получателя и подтвердите. Карточка окрашена по статусу: в очереди, выполняется, выплачено, отменена. Пока выплата в очереди, её можно отменить. Активные и архив лежат в одном разделе, из архива выгружается CSV.", "Tap “New payout”, enter the amount, card or phone, bank and recipient name, then confirm. The card is coloured by status: queued, in progress, paid out, canceled. A queued payout can be canceled. Active and archive live in one section; the archive exports to CSV.", 1, 5),
 )
 
 private const val SLIDE_MS = 5500
@@ -80,7 +81,7 @@ fun OnboardingDialog(onClose: () -> Unit) {
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AppLogo(28)
+                    BrandTitle(14)
                     Spacer(Modifier.weight(1f))
                     Box(Modifier.size(40.dp).clip(CircleShape).background(pal.surface2).pointerInput(Unit) { detectTapGestures { onClose() } }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Close, null, tint = pal.text)
@@ -120,7 +121,7 @@ private fun SlideView(s: Slide, active: Boolean, index: Int) {
     }
 }
 
-private val navIcons = listOf(Icons.Rounded.Receipt, Icons.Rounded.QrCode2, Icons.Rounded.Settings)
+private val navIcons = listOf(Icons.Rounded.Receipt, Icons.Rounded.NorthEast, Icons.Rounded.QrCode2, Icons.Rounded.Settings)
 
 @Composable
 private fun MockPhone(index: Int, target: Int, p: Float) {
@@ -138,9 +139,7 @@ private fun MockPhone(index: Int, target: Int, p: Float) {
     Box(Modifier.size(W.dp, H.dp).shadow(18.dp, RoundedCornerShape(34.dp), ambientColor = Color.Black.copy(alpha = .25f), spotColor = Color.Black.copy(alpha = .4f)).background(Color(0xFF14161E), RoundedCornerShape(34.dp)).padding(5.dp).clip(RoundedCornerShape(29.dp)).background(pal.bg)) {
         // Шапка.
         Row(Modifier.fillMaxWidth().padding(14.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo_mark), null, Modifier.size(20.dp))
-            Spacer(Modifier.width(6.dp))
-            Box(Modifier.height(8.dp).width(60.dp).clip(CircleShape).background(pal.muted.copy(alpha = .35f)))
+            BrandTitle(8)
         }
         // Содержимое раздела.
         Box(Modifier.padding(top = 44.dp, bottom = 58.dp).fillMaxSize().padding(horizontal = 14.dp)) { MockContent(index, p, done) }
@@ -230,13 +229,11 @@ private fun MockContent(index: Int, p: Float, done: Float) {
                     }
                 }
             }
-            else -> { // Вывод: кошелек, сумма растет, стрелка.
-                Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(10.dp)).background(Accent.copy(alpha = .3f)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Accent, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Bar(70)
-                }
-                Text(String.format(java.util.Locale.US, "%.0f USDT", 250f * ((p * 1.5f).coerceIn(0f, 1f))), color = pal.text, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
-                Row(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(10.dp)).background(if (done > 0.5f) Ok else Accent), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Icon(if (done > 0.5f) Icons.Rounded.Check else Icons.Rounded.ArrowUpward, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            else -> { // Выплата: форма, карточка меняет цвет по статусу.
+                val col = if (done > 0.5f) Ok else Accent
+                repeat(2) { Box(Modifier.fillMaxWidth().height(24.dp).clip(RoundedCornerShape(9.dp)).background(pal.surface2)) }
+                Row(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(12.dp)).background(col.copy(alpha = .18f)).border(1.5.dp, col.copy(alpha = .7f), RoundedCornerShape(12.dp)).padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (done > 0.5f) Icons.Rounded.CheckCircle else Icons.Rounded.NorthEast, null, tint = col, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Bar(50); Spacer(Modifier.weight(1f)); Bar(26, 9, col.copy(alpha = .8f))
                 }
             }
         }

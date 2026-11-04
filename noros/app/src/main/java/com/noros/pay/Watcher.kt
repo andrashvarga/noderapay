@@ -69,7 +69,7 @@ class WatchService : Service() {
         ensureChannels(this)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n: Notification = NotificationCompat.Builder(this, CH_WATCH).setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("Noros Pay").setContentText(tr("Слежу за статусами заявок и диспутов", "Watching order and dispute statuses"))
+            .setContentTitle("Noros Pay").setContentText(tr("Слежу за статусами заявок, выплат и диспутов", "Watching order, payout and dispute statuses"))
             .setContentIntent(open).setOngoing(true).setPriority(NotificationCompat.PRIORITY_MIN).build()
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1, n)
         if (job?.isActive != true) job = scope.launch {
@@ -94,15 +94,25 @@ class WatchService : Service() {
             val was = old[key] as? String
             if (!first && was != null && was != status) onChange(status)
         }
-        val cur = runCatching { Store.apiKey; Api.balance().optString("currency") }.getOrDefault("")
         for (t in Api.allTransactions().getJSONArray("rows").objects()) {
             val id = t.optInt("id")
             seen("tx:$id", t.optString("status")) { st ->
-                val amount = money(t.optDouble("amount"), t.optString("currency", cur))
+                val amount = money(t.optDouble("amount"), curOf(t))
                 when (st) {
                     "completed" -> push(ctx, 10_000 + id, tr("Заявка #$id оплачена", "Order #$id paid"), tr("Сумма $amount. Оплата подтверждена.", "Amount $amount. Payment confirmed."))
                     "canceled", "expired", "failed" -> push(ctx, 10_000 + id, tr("Заявка #$id отменена", "Order #$id canceled"),
                         (cancelText(t.optString("cancelReason")) ?: tr("Заявка закрыта без оплаты.", "The order was closed unpaid.")) + " $amount")
+                }
+            }
+        }
+        for (p in Api.payoutRows("all")) {
+            val id = p.optInt("id")
+            seen("po:$id", p.optString("status")) { st ->
+                val amount = money(p.optDouble("amount"), curOf(p, true))
+                when (st) {
+                    "Processing" -> push(ctx, 50_000 + id, tr("Выплата #$id в работе", "Payout #$id in progress"), tr("Сумма $amount. Исполнитель взял выплату.", "Amount $amount. A provider took the payout."))
+                    "Success" -> push(ctx, 50_000 + id, tr("Выплата #$id выполнена", "Payout #$id completed"), tr("Сумма $amount переведена получателю.", "Amount $amount was sent to the recipient."))
+                    "Canceled" -> push(ctx, 50_000 + id, tr("Выплата #$id отменена", "Payout #$id canceled"), (p.optStr("comment") ?: tr("Выплата закрыта без перевода.", "The payout was closed without a transfer.")) + " $amount")
                 }
             }
         }

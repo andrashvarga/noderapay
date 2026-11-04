@@ -45,6 +45,7 @@ private fun Root() {
 
 private enum class Tab(val ru: String, val en: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Orders("Заявки", "Orders", Icons.Rounded.Receipt),
+    Payouts("Выплаты", "Payouts", Icons.Rounded.NorthEast),
     Qr("QR", "QR", Icons.Rounded.QrCode2),
     Settings("Настройки", "Settings", Icons.Rounded.Settings),
 }
@@ -57,16 +58,15 @@ private fun MainShell() {
     val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { syncWatcher(ctx) }
     LaunchedEffect(Unit) {
         ensureChannels(ctx)
+        Api.resolveFiat()
         if (android.os.Build.VERSION.SDK_INT >= 33 && !canNotify(ctx) && Store.notify) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) else syncWatcher(ctx)
     }
     Scaffold(
         containerColor = pal.bg,
         topBar = {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                AppLogo(34)
-                if (Store.logoMode != "none") Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    BrandTitle(13)
+                    HeaderBrand(15)
                     if (Store.isTest) Text(tr("ТЕСТОВЫЙ РЕЖИМ", "TEST MODE"), color = Warn, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 val dark = pal.dark
@@ -83,7 +83,10 @@ private fun MainShell() {
                 Tab.entries.forEach { t ->
                     NavigationBarItem(
                         selected = tab == t, onClick = { tab = t }, alwaysShowLabel = true,
-                        icon = { Icon(t.icon, null) }, label = { Text(tr(t.ru, t.en), fontSize = 11.sp, maxLines = 1) },
+                        icon = {
+                            val n = when (t) { Tab.Orders -> Store.activeOrders; Tab.Payouts -> Store.activePayouts; else -> 0 }
+                            if (n > 0) BadgedBox(badge = { Badge(containerColor = Accent) { Text("$n", color = Color.White) } }) { Icon(t.icon, null) } else Icon(t.icon, null)
+                        }, label = { Text(tr(t.ru, t.en), fontSize = 11.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent, indicatorColor = Accent.copy(alpha = .16f), unselectedIconColor = pal.muted, unselectedTextColor = pal.muted),
                     )
                 }
@@ -93,6 +96,7 @@ private fun MainShell() {
         Box(Modifier.padding(pad).fillMaxSize().imePadding()) {
             when (tab) {
                 Tab.Orders -> OrdersScreen()
+                Tab.Payouts -> PayoutsScreen()
                 Tab.Qr -> CheckoutScreen()
                 Tab.Settings -> SettingsScreen { }
             }

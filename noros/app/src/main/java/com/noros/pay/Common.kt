@@ -39,6 +39,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.foundation.border
 import coil.compose.AsyncImage
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -77,18 +83,20 @@ val TelegramIcon: ImageVector by lazy {
     }.build()
 }
 
-/** Логотип в левом углу: наш, без логотипа или загруженный. */
+/**
+ * Логотип в шапке: только «Noros Pay» (пиксельный знак и слово Pay, без отдельной буквы N), свой логотип или ничего.
+ * Свой логотип лучше всего выглядит горизонтальным PNG с прозрачным фоном, 600 × 160 px.
+ */
 @Composable
-fun AppLogo(size: Int = 32, modifier: Modifier = Modifier) {
-    val dark = pal.dark
+fun HeaderBrand(height: Int = 16, modifier: Modifier = Modifier) {
     when (Store.logoMode) {
-        "none" -> Spacer(modifier.size(0.dp))
+        "none" -> {}
         "custom" -> {
             val bmp = remember(Store.logoVersion) { runCatching { BitmapFactory.decodeFile(Store.logoFile.path)?.asImageBitmap() }.getOrNull() }
-            if (bmp != null) Image(bmp, null, modifier.size(size.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
-            else Image(painterResource(R.drawable.logo_mark), null, modifier.size(size.dp))
+            if (bmp != null) Image(bmp, null, modifier.height((height * 2).dp).widthIn(max = (height * 9).dp), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+            else BrandTitle(height, modifier)
         }
-        else -> Image(painterResource(if (dark) R.drawable.logo_mark else R.drawable.logo_mark), null, modifier.size(size.dp))
+        else -> BrandTitle(height, modifier)
     }
 }
 
@@ -159,6 +167,31 @@ fun statusLabel(s: String): Pair<String, Color> = when (s) {
     "proof" -> tr("Проверка перевода", "Checking transfer") to Accent
     "offer", "accepted" -> tr("В обработке", "Processing") to Accent
     else -> s to Accent
+}
+
+/** Валюта строки: фиатная из самой заявки или выплаты, иначе фиатная валюта кабинета; USDT не показываем. */
+fun curOf(r: JSONObject, payout: Boolean = false): String = r.optString("currency").takeIf { isFiat(it) } ?: if (payout) Store.payoutCur else Store.fiat
+
+fun payoutStatusLabel(s: String): Pair<String, Color> = when (s) {
+    "Pending" -> tr("В очереди", "Queued") to Warn
+    "Processing" -> tr("Выполняется", "In progress") to Accent
+    "Success" -> tr("Выплачено", "Paid out") to Ok
+    "Canceled" -> tr("Отменена", "Canceled") to Bad
+    else -> s to Accent
+}
+
+/** Плашка «есть активные» сверху раздела: пульсирующая точка в цвете статуса. */
+@Composable
+fun ActiveBanner(text: String, color: Color, modifier: Modifier = Modifier) {
+    val t = rememberInfiniteTransition(label = "banner")
+    val a by t.animateFloat(0.35f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
+    Row(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(color.copy(alpha = .14f)).border(1.dp, color.copy(alpha = .5f), RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(color.copy(alpha = a)))
+        Text(text, color = color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    }
 }
 
 fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
