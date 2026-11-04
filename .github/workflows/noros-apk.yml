@@ -45,6 +45,9 @@ jobs:
           mkdir out
           cp app/build/outputs/apk/release/app-release.apk out/NorosPay.apk
           (cd out && sha256sum NorosPay.apk > SHA256SUMS)
+          # update.json: приложение по нему узнаёт о новой версии (код, хэш, ссылка, список изменений).
+          SHA=$(cut -d' ' -f1 out/SHA256SUMS)
+          jq --arg sha "$SHA" --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/noros-latest/NorosPay.apk" '{sha256:$sha, apkUrl:$url, releases:.}' app/src/main/assets/changelog.json > out/update.json
       - uses: actions/upload-artifact@v4
         with: { name: NorosPay-apk, path: noros/out/ }
       - name: Publish release
@@ -52,4 +55,4 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release delete noros-latest --yes --cleanup-tag || true
-          for i in 1 2 3; do gh release create noros-latest noros/out/NorosPay.apk noros/out/SHA256SUMS --title "Noros Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NorosPay.apk на телефон и откройте (разрешите установку из этого источника)." && break; sleep 10; done
+          for i in 1 2 3; do gh release create noros-latest noros/out/NorosPay.apk noros/out/SHA256SUMS noros/out/update.json --title "Noros Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NorosPay.apk на телефон и откройте (разрешите установку из этого источника)." && break; sleep 10; done

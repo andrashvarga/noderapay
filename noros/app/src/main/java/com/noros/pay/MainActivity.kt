@@ -54,7 +54,9 @@ private enum class Tab(val ru: String, val en: String, val icon: androidx.compos
 private fun MainShell() {
     var tab by rememberSaveable { mutableStateOf(Tab.Orders) }
     var help by remember { mutableStateOf(!Store.onboardingSeen) }
+    var updatePrompt by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) { if (Updater.check(ctx)) updatePrompt = true }
     val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { syncWatcher(ctx) }
     LaunchedEffect(Unit) {
         ensureChannels(ctx)
@@ -102,6 +104,7 @@ private fun MainShell() {
             }
         }
     }
+    if (updatePrompt && !help) UpdatePrompt { updatePrompt = false }
     if (help) OnboardingDialog { help = false; Store.setOnboardingSeen() }
 }
 

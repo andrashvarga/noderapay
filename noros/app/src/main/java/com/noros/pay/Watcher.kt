@@ -62,6 +62,7 @@ private fun push(ctx: Context, id: Int, title: String, text: String) {
 class WatchService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
+    private var lastUpdateCheck = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -74,7 +75,7 @@ class WatchService : Service() {
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1, n)
         if (job?.isActive != true) job = scope.launch {
             while (isActive) {
-                if (Store.connected && Store.notify) runCatching { poll(applicationContext) }
+                if (Store.connected && Store.notify) { runCatching { poll(applicationContext) }; runCatching { checkUpdate(applicationContext) } }
                 else { stopSelf(); break }
                 delay(POLL_MS)
             }
@@ -83,6 +84,18 @@ class WatchService : Service() {
     }
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
+
+    /** Раз в полчаса смотрим релиз; о каждой новой версии сообщаем один раз. */
+    private suspend fun checkUpdate(ctx: Context) {
+        if (System.currentTimeMillis() - lastUpdateCheck < 30 * 60_000L) return
+        lastUpdateCheck = System.currentTimeMillis()
+        if (!Updater.check(ctx)) return
+        val n = Updater.latest() ?: return
+        val prefs = ctx.getSharedPreferences("noros_pay_update", Context.MODE_PRIVATE)
+        if (prefs.getInt("update_notified", 0) >= n.code) return
+        prefs.edit().putInt("update_notified", n.code).apply()
+        push(ctx, 90_000, tr("Доступно обновление Noros Pay", "Noros Pay update available"), tr("Версия ${n.name}. Откройте приложение и нажмите «Обновить».", "Version ${n.name}. Open the app and tap “Update”."))
+    }
 
     private suspend fun poll(ctx: Context) {
         val prefs = Store.watchPrefs()

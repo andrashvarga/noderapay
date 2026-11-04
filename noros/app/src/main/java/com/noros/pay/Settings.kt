@@ -115,6 +115,8 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             if (Store.logoMode == "custom") { Spacer(Modifier.height(8.dp)); SoftButton(tr("Загрузить другой логотип", "Upload another logo"), icon = Icons.Rounded.Upload) { logoPicker.launch("image/*") } }
         }
 
+        UpdatesSection()
+
         Section(tr("Уведомления", "Notifications")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -132,7 +134,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             }
         }
 
-        Muted("Noros Pay 1.1.0")
+        Muted("Noros Pay 1.2.0")
         Spacer(Modifier.height(8.dp))
     }
 
