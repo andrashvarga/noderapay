@@ -74,11 +74,11 @@ object Api {
         if (Store.fiat.isNotBlank() && Store.payoutFiat.isNotBlank()) return
         runCatching {
             val b = balance()
-            listOf("terminalCurrency", "payoutCurrency", "fiatCurrency", "currency").forEach { k -> val v = b.optString(k); if (isFiat(v)) { Store.setFiat(v); Store.setPayoutFiat(v); return@forEach } }
+            listOf("terminalCurrency", "payoutCurrency", "fiatCurrency", "currency").forEach { k -> val v = b.optString(k); if (isFiat(v)) { Store.noteFiat(v); Store.notePayoutFiat(v); return@forEach } }
         }
-        Store.orders().firstOrNull { isFiat(it.optString("currency")) }?.let { Store.setFiat(it.optString("currency")) }
-        if (Store.payoutFiat.isBlank()) runCatching { csvCurrency("payouts")?.let { Store.setPayoutFiat(it); if (Store.fiat.isBlank()) Store.setFiat(it) } }
-        if (Store.fiat.isBlank()) runCatching { csvCurrency("transactions")?.let { Store.setFiat(it) } }
+        Store.orders().firstOrNull { isFiat(it.optString("currency")) }?.let { Store.noteFiat(it.optString("currency")) }
+        if (Store.payoutFiat.isBlank()) runCatching { csvCurrency("payouts")?.let { Store.notePayoutFiat(it); if (Store.fiat.isBlank()) Store.noteFiat(it) } }
+        if (Store.fiat.isBlank()) runCatching { csvCurrency("transactions")?.let { Store.noteFiat(it) } }
     }
 
     private suspend fun csvCurrency(kind: String): String? {
@@ -187,7 +187,7 @@ object Api {
             }
         }
         if (!o.has("fee")) o.put("fee", 0.0)
-        if (isFiat(o.optString("currency"))) Store.setFiat(o.optString("currency"))
+        if (isFiat(o.optString("currency"))) Store.noteFiat(o.optString("currency"))
         return o
     }
 

@@ -141,8 +141,8 @@ object Store {
         writeList("orders", l.sortedByDescending { it.optInt("id") }.take(300))
     }
 
-    fun setFiat(c: String?) { if (isFiat(c) && c!!.uppercase() != fiat) { fiat = c.uppercase(); plain.edit().putString("fiat", fiat).apply() } }
-    fun setPayoutFiat(c: String?) { if (isFiat(c) && c!!.uppercase() != payoutFiat) { payoutFiat = c.uppercase(); plain.edit().putString("payout_fiat", payoutFiat).apply() } }
+    fun noteFiat(c: String?) { if (isFiat(c) && c!!.uppercase() != fiat) { fiat = c.uppercase(); plain.edit().putString("fiat", fiat).apply() } }
+    fun notePayoutFiat(c: String?) { if (isFiat(c) && c!!.uppercase() != payoutFiat) { payoutFiat = c.uppercase(); plain.edit().putString("payout_fiat", payoutFiat).apply() } }
 
     // ---- Выплаты, созданные в приложении ----
     fun payouts(): List<JSONObject> = readList("payouts")
