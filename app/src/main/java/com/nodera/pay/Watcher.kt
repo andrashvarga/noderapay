@@ -25,7 +25,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-private const val CH_EVENTS = "events"
+internal const val CH_EVENTS = "events"
+internal const val CH_BROADCAST = "broadcast"
 private const val CH_WATCH = "watch"
 private const val POLL_MS = 30_000L
 
@@ -34,6 +35,7 @@ fun ensureChannels(ctx: Context) {
     if (Build.VERSION.SDK_INT < 26) return
     val nm = ctx.getSystemService(NotificationManager::class.java)
     nm.createNotificationChannel(NotificationChannel(CH_EVENTS, tr("Статусы заявок, выплат, выводов и диспутов", "Order, payout, withdrawal and dispute updates"), NotificationManager.IMPORTANCE_HIGH))
+    nm.createNotificationChannel(NotificationChannel(CH_BROADCAST, tr("Новости Nodera Pay", "Nodera Pay news"), NotificationManager.IMPORTANCE_HIGH))
     nm.createNotificationChannel(NotificationChannel(CH_WATCH, tr("Работа в фоне", "Background work"), NotificationManager.IMPORTANCE_MIN))
 }
 
@@ -45,10 +47,10 @@ fun syncWatcher(ctx: Context) {
     if (Store.connected && Store.notify) runCatching { ContextCompat.startForegroundService(ctx, i) } else ctx.stopService(i)
 }
 
-private fun push(ctx: Context, id: Int, title: String, text: String) {
+internal fun push(ctx: Context, id: Int, title: String, text: String, channel: String = CH_EVENTS) {
     if (!canNotify(ctx)) return
     val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    val n = NotificationCompat.Builder(ctx, CH_EVENTS).setSmallIcon(R.drawable.ic_stat).setContentTitle(title).setContentText(text)
+    val n = NotificationCompat.Builder(ctx, channel).setSmallIcon(R.drawable.ic_stat).setContentTitle(title).setContentText(text)
         .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).build()
     runCatching { NotificationManagerCompat.from(ctx).notify(id, n) }
 }

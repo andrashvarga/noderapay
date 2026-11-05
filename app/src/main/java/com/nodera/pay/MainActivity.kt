@@ -66,6 +66,7 @@ private fun MainShell() {
         Api.resolveFiat()
         if (android.os.Build.VERSION.SDK_INT >= 33 && !canNotify(ctx) && Store.notify) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) else syncWatcher(ctx)
     }
+    LaunchedEffect(Unit) { Push.sync(ctx) }
     Scaffold(
         containerColor = pal.bg,
         topBar = {

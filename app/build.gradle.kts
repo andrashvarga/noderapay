@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.gms.google-services")
 }
 
 val ks = Properties().apply { rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
@@ -15,8 +16,8 @@ android {
         applicationId = "com.nodera.pay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.8.2"
+        versionCode = 12
+        versionName = "1.9.0"
     }
     signingConfigs {
         if (ks.isNotEmpty()) create("release") {
@@ -50,4 +51,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.zxing:core:3.5.3")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-messaging")
 }

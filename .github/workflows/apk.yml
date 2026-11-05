@@ -2,7 +2,7 @@
 name: Build APK
 on:
   push:
-    branches: [main, claude/project-thread-ypu7dv]
+    branches: [main, claude/project-thread-ypu7dv, claude/project-thread-q2hge3]
   workflow_dispatch:
 permissions:
   contents: write
@@ -39,7 +39,9 @@ jobs:
           jq --arg sha "$SHA" --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/NoderaPay.apk" '{sha256:$sha, apkUrl:$url, releases:.}' app/src/main/assets/changelog.json > out/update.json
       - uses: actions/upload-artifact@v4
         with: { name: NoderaPay-apk, path: out/ }
+      # Релиз «latest» (по нему приложения обновляются у всех) обновляет только main; ветки пишут артефакт.
       - name: Publish release
+        if: ${{ github.ref == 'refs/heads/main' }}
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release delete latest --yes --cleanup-tag || true
