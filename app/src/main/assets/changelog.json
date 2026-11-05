@@ -1,5 +1,16 @@
 [
  {
+  "code": 12,
+  "name": "1.9.0",
+  "date": "2026-11-05",
+  "ru": [
+   "Уведомления от Nodera: новости и важные сообщения приходят пуш-уведомлением, даже если приложение закрыто"
+  ],
+  "en": [
+   "Notifications from Nodera: news and important messages arrive as push notifications even when the app is closed"
+  ]
+ },
+ {
   "code": 11,
   "name": "1.8.2",
   "date": "2026-11-05",

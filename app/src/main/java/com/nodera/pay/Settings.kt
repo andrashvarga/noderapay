@@ -154,7 +154,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
         onDismissRequest = { confirmDelete = false },
         title = { Text(tr("Удалить ключи?", "Delete keys?")) },
         text = { Text(tr("Приложение перестанет работать, пока вы не введёте новые ключи.", "The app will stop working until you enter new keys.")) },
-        confirmButton = { TextButton({ confirmDelete = false; Store.deleteKeys(); syncWatcher(ctx); onDisconnected() }) { Text(tr("Удалить", "Delete"), color = Bad) } },
+        confirmButton = { TextButton({ confirmDelete = false; Push.forget(); Store.deleteKeys(); syncWatcher(ctx); onDisconnected() }) { Text(tr("Удалить", "Delete"), color = Bad) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text(tr("Отмена", "Cancel")) } },
     )
 }

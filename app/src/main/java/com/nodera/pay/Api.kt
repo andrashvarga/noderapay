@@ -122,6 +122,10 @@ object Api {
         o.optJSONArray("rows")?.let { rows -> (0 until rows.length()).forEach { Store.noteFiat(rows.getJSONObject(it).optString("currency")) } }
         return o
     }
+    /** Токен Firebase для рассылок из админки (идемпотентно). */
+    suspend fun registerDevice(token: String, version: String) = obj("POST", "/app/device", JSONObject().put("token", token).put("appVersion", version).put("lang", Store.lang))
+    suspend fun unregisterDevice(token: String, url: String, key: String, secret: String) { call("DELETE", "/app/device", JSONObject().put("token", token), url, key, secret) }
+
     suspend fun methods() = arr("/banks")
 
     suspend fun createLink(amount: Double, bankIds: List<Int>, orderId: String): JSONObject {
