@@ -124,6 +124,8 @@ object Api {
     }
     /** Токен Firebase для рассылок из админки (идемпотентно). */
     suspend fun registerDevice(token: String, version: String) = obj("POST", "/app/device", JSONObject().put("token", token).put("appVersion", version).put("lang", Store.lang))
+    /** «Пинг» раз в 30 секунд: админка видит устройство «в сети» и может завершить сессию (ответ revoked). */
+    suspend fun ping(token: String, version: String): Boolean = obj("POST", "/app/ping", JSONObject().put("token", token).put("appVersion", version)).optBoolean("revoked", false)
     suspend fun unregisterDevice(token: String, url: String, key: String, secret: String) { call("DELETE", "/app/device", JSONObject().put("token", token), url, key, secret) }
 
     suspend fun methods() = arr("/banks")
