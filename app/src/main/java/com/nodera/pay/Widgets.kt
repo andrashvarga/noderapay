@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -105,20 +106,25 @@ fun StatusSteps(status: String) {
     }
 }
 
-/** Растягивает содержимое на всю ширину экрана, компенсируя боковые отступы списка. */
-private fun Modifier.bleed(extra: Dp = 16.dp): Modifier = this.layout { m, c ->
-    val e = extra.roundToPx()
-    val w = c.maxWidth + 2 * e
-    val pl = m.measure(c.copy(minWidth = w, maxWidth = w))
-    layout(c.maxWidth, pl.height) { pl.place(-e, 0) }
+/** Текст и (по желанию) кнопка пустого раздела: по центру области над пустыней. */
+@Composable
+fun EmptyNote(title: String, hint: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = SCENE_H), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Text(title, fontWeight = FontWeight.Bold, color = pal.text, fontSize = 20.sp, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(6.dp))
+        Text(hint, color = pal.muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+        if (action != null) { Spacer(Modifier.height(18.dp)); action() }
+    }
 }
 
+private val SCENE_H = 190.dp
+
 /**
- * Пустой раздел: текст и кнопка по центру, внизу, над нижней панелью, пустыня на всю ширину,
- * по ней катится логотип-перекати-поле с шлейфом из пыли.
+ * Пустыня на всю ширину и вплотную к нижней панели, по ней катится логотип-перекати-поле с шлейфом из пыли.
+ * Высота одна и та же на всех вкладках; всё, что не влезает, обрезается по границам страницы.
  */
 @Composable
-fun Tumbleweed(title: String, hint: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun TumbleweedScene(modifier: Modifier = Modifier) {
     val t = rememberInfiniteTransition(label = "weed")
     val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(8000, easing = LinearEasing)), label = "x")
     val dark = pal.dark
@@ -130,80 +136,64 @@ fun Tumbleweed(title: String, hint: String, modifier: Modifier = Modifier, actio
     val near = if (dark) Color(0xFF2C261C) else Color(0xFFCDAE72)
     val nearLit = if (dark) Color(0xFF433923) else Color(0xFFE3C98F)
     val speck = if (dark) Color(0xFF6B5C3E) else Color(0xFFA98A50)
-    val sceneH = 190.dp
-    Column(modifier.fillMaxWidth().bleed(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(title, fontWeight = FontWeight.Bold, color = pal.text, fontSize = 20.sp, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(6.dp))
-            Text(hint, color = pal.muted, fontSize = 14.sp, textAlign = TextAlign.Center)
-            if (action != null) { Spacer(Modifier.height(18.dp)); action() }
-        }
-        BoxWithConstraints(Modifier.fillMaxWidth().height(sceneH)) {
-            val w = maxWidth
-            val wd = 56.dp
-            val gyFrac = 0.66f
-            val gy = sceneH * gyFrac
-            fun xAt(q: Float) = lerp(-wd.value, w.value + wd.value, q).dp
-            fun bounceAt(q: Float) = (kotlin.math.abs(kotlin.math.sin(q * Math.PI * 7)) * 24).toFloat()
-            val x = xAt(p)
-            val bounce = bounceAt(p)
-            Canvas(Modifier.fillMaxSize()) {
-                val cw = size.width; val ch = size.height
-                val g = ch * gyFrac
-                fun ridge(base: Float, a1: Float, l1: Float, a2: Float, l2: Float, ph: Float): Path {
-                    val path = Path(); path.moveTo(0f, ch)
-                    var xx = 0f
-                    while (xx <= cw + 4f) {
-                        val y = base + a1.dp.toPx() * kotlin.math.sin(xx / l1.dp.toPx() + ph) + a2.dp.toPx() * kotlin.math.sin(xx / l2.dp.toPx() + ph * 2.3f)
-                        path.lineTo(xx, y); xx += 4.dp.toPx()
-                    }
-                    path.lineTo(cw, ch); path.close(); return path
+    val sceneH = SCENE_H
+    BoxWithConstraints(modifier.fillMaxWidth().height(sceneH).clipToBounds()) {
+        val w = maxWidth
+        val wd = 56.dp
+        val gyFrac = 0.66f
+        val gy = sceneH * gyFrac
+        fun xAt(q: Float) = lerp(-wd.value, w.value + wd.value, q).dp
+        fun bounceAt(q: Float) = (kotlin.math.abs(kotlin.math.sin(q * Math.PI * 7)) * 24).toFloat()
+        val x = xAt(p)
+        val bounce = bounceAt(p)
+        Canvas(Modifier.fillMaxSize()) {
+            val cw = size.width; val ch = size.height
+            val g = ch * gyFrac
+            fun ridge(base: Float, a1: Float, l1: Float, a2: Float, l2: Float, ph: Float): Path {
+                val path = Path(); path.moveTo(0f, ch)
+                var xx = 0f
+                while (xx <= cw + 4f) {
+                    val y = base + a1.dp.toPx() * kotlin.math.sin(xx / l1.dp.toPx() + ph) + a2.dp.toPx() * kotlin.math.sin(xx / l2.dp.toPx() + ph * 2.3f)
+                    path.lineTo(xx, y); xx += 4.dp.toPx()
                 }
-                // Дымка у горизонта.
-                drawRect(Brush.verticalGradient(listOf(Color.Transparent, skyHaze.copy(alpha = .75f)), startY = ch * 0.15f, endY = g - 14.dp.toPx()), size = Size(cw, g))
-                // Дальние барханы.
-                drawPath(ridge(g - 26.dp.toPx(), 9f, 110f, 4f, 47f, 0.6f), Brush.verticalGradient(listOf(farLit, far), startY = g - 40.dp.toPx(), endY = ch))
-                // Средние барханы, по ним катится знак.
-                drawPath(ridge(g + 2.dp.toPx(), 4f, 90f, 2f, 33f, 2.1f), Brush.verticalGradient(listOf(midLit, mid), startY = g - 4.dp.toPx(), endY = ch))
-                // Освещённый гребень средних барханов.
-                val crest = Path(); var cx = 0f
-                while (cx <= cw) {
-                    val y = g + 2.dp.toPx() + 4.dp.toPx() * kotlin.math.sin(cx / 90.dp.toPx() + 2.1f) + 2.dp.toPx() * kotlin.math.sin(cx / 33.dp.toPx() + 4.83f)
-                    if (cx == 0f) crest.moveTo(cx, y) else crest.lineTo(cx, y); cx += 4.dp.toPx()
-                }
-                drawPath(crest, midLit.copy(alpha = .9f), style = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round))
-                // Шлейф: пыль у земли и угасающие следы вдоль траектории.
-                for (k in 1..12) {
-                    val q = p - k * 0.0105f
-                    if (q < 0f) continue
-                    val fade = 1f - k / 13f
-                    val px = xAt(q).toPx()
-                    val py = g - bounceAt(q).dp.toPx()
-                    drawCircle(near.copy(alpha = .20f * fade), (wd.toPx() * .20f * fade) + 2.dp.toPx(), Offset(px, py - wd.toPx() * .45f))
-                    drawOval(near.copy(alpha = .30f * fade), Offset(px - 9.dp.toPx() * (1.4f - fade), g + 2.dp.toPx() - 2.dp.toPx() * fade), Size(18.dp.toPx() * (1.4f - fade), 5.dp.toPx() * (1.4f - fade)))
-                }
-                // Ближние барханы поверх.
-                drawPath(ridge(g + 24.dp.toPx(), 6f, 70f, 3f, 28f, 4.0f), Brush.verticalGradient(listOf(nearLit, near), startY = g + 14.dp.toPx(), endY = ch))
-                // Песчинки и камешки.
-                var seed = 7L
-                fun rnd(): Float { seed = (seed * 1103515245L + 12345L) and 0x7fffffffL; return (seed % 10000L) / 10000f }
-                for (i in 0 until 46) {
-                    val sx = rnd() * cw; val sy = g + 18.dp.toPx() + rnd() * (ch - g - 20.dp.toPx())
-                    drawCircle(speck.copy(alpha = .25f + rnd() * .3f), (.6f + rnd() * 1.1f).dp.toPx(), Offset(sx, sy))
-                }
-                for (i in 0 until 4) {
-                    val sx = cw * (0.12f + i * 0.27f + rnd() * 0.08f); val sy = g + 34.dp.toPx() + rnd() * 18.dp.toPx()
-                    drawOval(speck.copy(alpha = .55f), Offset(sx, sy), Size((6f + rnd() * 6f).dp.toPx(), 3.5f.dp.toPx()))
-                }
+                path.lineTo(cw, ch); path.close(); return path
             }
-            // Тень и сам знак.
-            val shadowW = (wd.value * (0.9f - bounce / 90f)).dp
-            Box(Modifier.offset(x - shadowW / 2, gy + 1.dp).size(shadowW, 7.dp).clip(CircleShape).background(Color.Black.copy(alpha = (0.16f - bounce / 300f).coerceAtLeast(.05f))))
-            Image(
-                painterResource(R.drawable.logo_mark), null,
-                Modifier.offset(x - wd / 2, gy - wd - bounce.dp + 6.dp).size(wd).rotate(p * 720f),
-                contentScale = ContentScale.Fit,
-            )
+            drawRect(Brush.verticalGradient(listOf(Color.Transparent, skyHaze.copy(alpha = .75f)), startY = ch * 0.15f, endY = g - 14.dp.toPx()), size = Size(cw, g))
+            drawPath(ridge(g - 26.dp.toPx(), 9f, 110f, 4f, 47f, 0.6f), Brush.verticalGradient(listOf(farLit, far), startY = g - 40.dp.toPx(), endY = ch))
+            drawPath(ridge(g + 2.dp.toPx(), 4f, 90f, 2f, 33f, 2.1f), Brush.verticalGradient(listOf(midLit, mid), startY = g - 4.dp.toPx(), endY = ch))
+            val crest = Path(); var cx = 0f
+            while (cx <= cw) {
+                val y = g + 2.dp.toPx() + 4.dp.toPx() * kotlin.math.sin(cx / 90.dp.toPx() + 2.1f) + 2.dp.toPx() * kotlin.math.sin(cx / 33.dp.toPx() + 4.83f)
+                if (cx == 0f) crest.moveTo(cx, y) else crest.lineTo(cx, y); cx += 4.dp.toPx()
+            }
+            drawPath(crest, midLit.copy(alpha = .9f), style = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round))
+            for (k in 1..12) {
+                val q = p - k * 0.0105f
+                if (q < 0f) continue
+                val fade = 1f - k / 13f
+                val px = xAt(q).toPx()
+                val py = g - bounceAt(q).dp.toPx()
+                drawCircle(near.copy(alpha = .20f * fade), (wd.toPx() * .20f * fade) + 2.dp.toPx(), Offset(px, py - wd.toPx() * .45f))
+                drawOval(near.copy(alpha = .30f * fade), Offset(px - 9.dp.toPx() * (1.4f - fade), g + 2.dp.toPx() - 2.dp.toPx() * fade), Size(18.dp.toPx() * (1.4f - fade), 5.dp.toPx() * (1.4f - fade)))
+            }
+            drawPath(ridge(g + 24.dp.toPx(), 6f, 70f, 3f, 28f, 4.0f), Brush.verticalGradient(listOf(nearLit, near), startY = g + 14.dp.toPx(), endY = ch))
+            var seed = 7L
+            fun rnd(): Float { seed = (seed * 1103515245L + 12345L) and 0x7fffffffL; return (seed % 10000L) / 10000f }
+            for (i in 0 until 46) {
+                val sx = rnd() * cw; val sy = g + 18.dp.toPx() + rnd() * (ch - g - 20.dp.toPx())
+                drawCircle(speck.copy(alpha = .25f + rnd() * .3f), (.6f + rnd() * 1.1f).dp.toPx(), Offset(sx, sy))
+            }
+            for (i in 0 until 4) {
+                val sx = cw * (0.12f + i * 0.27f + rnd() * 0.08f); val sy = g + 34.dp.toPx() + rnd() * 18.dp.toPx()
+                drawOval(speck.copy(alpha = .55f), Offset(sx, sy), Size((6f + rnd() * 6f).dp.toPx(), 3.5f.dp.toPx()))
+            }
         }
+        val shadowW = (wd.value * (0.9f - bounce / 90f)).dp
+        Box(Modifier.offset(x - shadowW / 2, gy + 1.dp).size(shadowW, 7.dp).clip(CircleShape).background(Color.Black.copy(alpha = (0.16f - bounce / 300f).coerceAtLeast(.05f))))
+        Image(
+            painterResource(R.drawable.logo_mark), null,
+            Modifier.offset(x - wd / 2, gy - wd - bounce.dp + 6.dp).size(wd).rotate(p * 720f),
+            contentScale = ContentScale.Fit,
+        )
     }
 }

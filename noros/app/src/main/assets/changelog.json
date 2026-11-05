@@ -1,5 +1,20 @@
 [
  {
+  "code": 5,
+  "name": "1.3.1",
+  "date": "2026-11-05",
+  "ru": [
+   "Пустые вкладки: пустыня одной высоты на всех страницах, вплотную к нижней панели, больше не заходит в соседние вкладки",
+   "Пустая вкладка «Активные выплаты»: кнопка «Новая выплата» по центру",
+   "Красивые пустые состояния в заявках, выплатах, архивах и диспутах: пустыня, перекати-поле, шлейф"
+  ],
+  "en": [
+   "Empty tabs: the desert has the same height on all pages, sits flush with the bottom bar and no longer spills into neighbouring tabs",
+   "Empty “Active payouts” tab: centered “New payout” button",
+   "Nicer empty states in orders, payouts, archives and disputes: desert, tumbleweed, dust trail"
+  ]
+ },
+ {
   "code": 4,
   "name": "1.3.0",
   "date": "2026-11-05",

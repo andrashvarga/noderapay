@@ -81,23 +81,22 @@ private fun OrdersPage(kind: String, currency: String, refreshKey: Int, onOpen: 
         val all = list.data
         // Сверху только три последние активные заявки: новая вытесняет самую старую.
         val rows = if (kind == "active") all?.take(ACTIVE_LIMIT) else all
+        val empty = rows != null && rows.isEmpty() && (kind != "active" || Store.activeOrders == 0)
+        if (empty) TumbleweedScene(Modifier.align(Alignment.BottomCenter))
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
             if (kind == "archive") item { SoftButton(tr("Выгрузить CSV", "Export CSV"), Modifier.fillMaxWidth(), Icons.Rounded.Download, onClick = onCsv) }
             if (list.error != null) item { ErrorNote(list.error) }
-            if (rows != null && rows.isEmpty()) item {
-                // Перекати-поле только на вкладке «Активные» и только когда активных заявок действительно нет.
-                when (kind) {
-                    "archive" -> Tumbleweed(tr("Архив пуст", "The archive is empty"), tr("Завершённые заявки появятся здесь.", "Finished orders will appear here."), Modifier.fillParentMaxHeight(0.8f))
-                    "active" -> { if (Store.activeOrders == 0) Tumbleweed(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section."), Modifier.fillParentMaxHeight(0.8f)) }
-                    else -> Tumbleweed(tr("Диспутов нет", "No disputes"), tr("Спорные заявки появятся здесь.", "Disputed orders will appear here."), Modifier.fillParentMaxHeight(0.8f))
-                }
-            }
             items(rows ?: emptyList()) { r ->
                 if (kind == "appeals") AppealRow(r) else TxRow(r, currency, if (canCancel(r)) ({ onCancel(r) }) else null) { onOpen(r) }
             }
             if (kind == "active" && (all?.size ?: 0) > ACTIVE_LIMIT) item {
                 Muted(tr("Показаны $ACTIVE_LIMIT последние из ${all!!.size}. Остальные попадут в архив, когда завершатся.", "Showing the latest $ACTIVE_LIMIT of ${all!!.size}. The rest move to the archive when finished."))
             }
+        }
+        if (empty) when (kind) {
+            "archive" -> EmptyNote(tr("Архив пуст", "The archive is empty"), tr("Завершённые заявки появятся здесь.", "Finished orders will appear here."), Modifier.fillMaxSize())
+            "active" -> EmptyNote(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section."), Modifier.fillMaxSize())
+            else -> EmptyNote(tr("Диспутов нет", "No disputes"), tr("Спорные заявки появятся здесь.", "Disputed orders will appear here."), Modifier.fillMaxSize())
         }
     }
 }
