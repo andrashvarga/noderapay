@@ -94,7 +94,7 @@ class WatchService : Service() {
         val prefs = ctx.getSharedPreferences("noros_pay_update", Context.MODE_PRIVATE)
         if (prefs.getInt("update_notified", 0) >= n.code) return
         prefs.edit().putInt("update_notified", n.code).apply()
-        push(ctx, 90_000, tr("Доступно обновление Noros Pay", "Noros Pay update available"), tr("Версия ${n.name}. Откройте приложение и нажмите «Обновить».", "Version ${n.name}. Open the app and tap “Update”."))
+        Notices.updateText(n.name).let { push(ctx, 90_000, it.first, it.second) }
     }
 
     private suspend fun poll(ctx: Context) {

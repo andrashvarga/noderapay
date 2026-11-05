@@ -58,7 +58,7 @@ private fun MainShell() {
     var help by remember { mutableStateOf(!Store.onboardingSeen) }
     var updatePrompt by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    LaunchedEffect(Unit) { if (Updater.check(ctx)) updatePrompt = true }
+    LaunchedEffect(Unit) { if (Updater.check(ctx)) Notices.showUpdate(Updater.latest()?.name ?: "") { updatePrompt = true } }
     val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { syncWatcher(ctx) }
     LaunchedEffect(Unit) {
         ensureChannels(ctx)

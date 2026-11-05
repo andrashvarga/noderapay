@@ -24,7 +24,7 @@ import kotlinx.coroutines.delay
 
 /** Шуточные плашки о связи и ошибках: на каждую ситуацию несколько вариантов, показываются вразнобой, подряд не повторяются. */
 object Notices {
-    class Msg(val id: Long, val kind: String, val title: String, val text: String)
+    class Msg(val id: Long, val kind: String, val title: String, val text: String, val action: (() -> Unit)? = null)
     private class N(val kind: String, val title: String, val text: String)
 
     var current by mutableStateOf<Msg?>(null)
@@ -75,6 +75,25 @@ object Notices {
         val t = l[i]
         val en = EN[key]
         current = if (Store.lang == "ru" || en == null) Msg(++seq, t.kind, t.title, t.text) else Msg(++seq, t.kind, en.first, en.second)
+    }
+
+    private val UPD = listOf(Pair("Вышло обновление %v", "Нажмите, чтобы обновиться. Данные и ключи останутся на месте."),Pair("Подвезли новую версию", "Версия %v готова. Нажмите, чтобы поставить."),Pair("Приложение обросло обновкой", "Версия %v ждёт вас. Нажмите, чтобы посмотреть, что нового."))
+    private var updLast = -1
+
+    /** Один из трёх текстов об обновлении: заголовок и пояснение с номером версии. */
+    fun updateText(version: String): Pair<String, String> {
+        var i = UPD.indices.random()
+        if (i == updLast) i = (i + 1) % UPD.size
+        updLast = i
+        val p = UPD[i]
+        return if (Store.lang == "ru") p.first.replace("%v", version) to p.second.replace("%v", version)
+        else "Update available" to "Version $version is ready. Tap to update."
+    }
+
+    /** Плашка «вышло обновление»: по нажатию вызывается action (открывает окно обновления). */
+    fun showUpdate(version: String, action: () -> Unit) {
+        val t = updateText(version)
+        current = Msg(++seq, "ok", t.first, t.second, action)
     }
 
     fun dismiss() { current = null }
@@ -132,7 +151,7 @@ fun NoticeHost() {
     val m = Notices.current
     var shown by remember { mutableStateOf<Notices.Msg?>(null) }
     LaunchedEffect(m?.id) {
-        if (m != null) { shown = m; delay(4500); if (Notices.current?.id == m.id) Notices.dismiss() }
+        if (m != null) { shown = m; delay(if (m.action != null) 9000 else 4500); if (Notices.current?.id == m.id) Notices.dismiss() }
     }
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(visible = m != null, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
@@ -141,7 +160,7 @@ fun NoticeHost() {
                 val c = when (s.kind) { "ok" -> Ok; "warn" -> Warn; "bad" -> Bad; else -> Color(0xFF6B6F8C) }
                 Row(
                     Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(pal.surface)
-                        .clickable { Notices.dismiss() }.padding(12.dp),
+                        .clickable { s.action?.invoke(); Notices.dismiss() }.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Box(Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(c), contentAlignment = Alignment.Center) {
