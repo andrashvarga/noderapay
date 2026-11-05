@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Notices.watchNetwork(this)
         setContent { NorosTheme { Root() } }
     }
 }
@@ -40,6 +41,7 @@ private fun Root() {
             !Store.connected -> Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { ConnectScreen { } }
             else -> MainShell()
         }
+        NoticeHost()
     }
 }
 

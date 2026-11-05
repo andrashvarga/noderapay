@@ -30,12 +30,15 @@ object Api {
                 http.newCall(b.build()).execute().use { r ->
                     val text = r.body?.string().orEmpty()
                     if (!r.isSuccessful) {
+                        Notices.http(r.code, method, false)
                         val e = runCatching { JSONObject(text).getJSONObject("error") }.getOrNull()
                         throw ApiException(e?.optString("message")?.ifBlank { null } ?: "HTTP ${r.code}", e?.optString("code"))
                     }
+                    Notices.ok()
                     if (text.isBlank()) JSONObject() else if (text.trimStart().startsWith("[")) JSONArray(text) else JSONObject(text)
                 }
             } catch (e: ApiException) { throw e } catch (e: Exception) {
+            Notices.network()
                 throw ApiException(tr("Нет связи с сервером. Проверьте адрес и интернет.", "Cannot reach the server. Check the address and your connection."))
             }
         }

@@ -39,6 +39,7 @@ object Api {
             http.newCall(b.build()).execute().use { r ->
                 val text = r.body?.string().orEmpty()
                 if (!r.isSuccessful) {
+                    Notices.http(r.code, method, multipart != null)
                     val j = runCatching { JSONObject(text) }.getOrNull()
                     val msg = j?.optString("message")?.ifBlank { null } ?: when (r.code) {
                         401 -> tr("Ключи не подошли. Проверьте api_key и api_secret_key.", "The keys were rejected. Check api_key and api_secret_key.")
@@ -48,9 +49,11 @@ object Api {
                     val appealId = j?.optInt("appealId", 0) ?: 0
                     throw ApiException(msg, if (appealId > 0) "appeal:$appealId" else r.code.toString())
                 }
+                Notices.ok()
                 if (text.isBlank()) JSONObject() else if (text.trimStart().startsWith("[")) JSONArray(text) else JSONObject(text)
             }
         } catch (e: ApiException) { throw e } catch (e: Exception) {
+            Notices.network()
             throw ApiException(tr("Нет связи с сервером Noros. Проверьте интернет.", "Cannot reach the Noros server. Check your connection."))
         }
     }
