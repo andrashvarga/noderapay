@@ -1,5 +1,18 @@
 [
  {
+  "code": 10,
+  "name": "1.8.1",
+  "date": "2026-11-05",
+  "ru": [
+   "Пустые вкладки (заявки, выплаты, архивы, диспуты): пустыня на всю ширину, реалистичнее барханы, пыльный шлейф за перекати-поле, оно катится над нижней панелью",
+   "«Активных выплат нет»: кнопка «Новая выплата» по центру"
+  ],
+  "en": [
+   "Empty tabs (orders, payouts, archives, disputes): full-width desert, more realistic dunes, dusty trail behind the tumbleweed, rolling above the bottom bar",
+   "“No active payouts”: centered “New payout” button"
+  ]
+ },
+ {
   "code": 9,
   "name": "1.8.0",
   "date": "2026-11-05",

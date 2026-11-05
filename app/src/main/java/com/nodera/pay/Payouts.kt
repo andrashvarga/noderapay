@@ -80,12 +80,14 @@ private fun PayoutsPage(kind: String, refreshKey: Int, onNew: () -> Unit, onCsv:
         val all = list.data
         val rows = if (kind == "active") all?.take(ACTIVE_LIMIT) else all
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-            if (kind == "active") item { PrimaryButton(tr("Новая выплата", "New payout"), icon = Icons.Rounded.Add, onClick = onNew) }
+            if (kind == "active") { if (rows == null || rows.isNotEmpty()) item { PrimaryButton(tr("Новая выплата", "New payout"), icon = Icons.Rounded.Add, onClick = onNew) } }
             else item { SoftButton(tr("Выгрузить CSV", "Export CSV"), Modifier.fillMaxWidth(), Icons.Rounded.Download, onClick = onCsv) }
             if (list.error != null) item { ErrorNote(list.error) }
             if (rows != null && rows.isEmpty()) item {
-                if (kind == "active") Tumbleweed(tr("Активных выплат нет", "No active payouts"), tr("Создайте выплату кнопкой выше.", "Create a payout with the button above."))
-                else Card { Muted(tr("В архиве пока пусто.", "The archive is empty.")) }
+                if (kind == "active") Tumbleweed(tr("Активных выплат нет", "No active payouts"), tr("Создайте выплату кнопкой ниже.", "Create a payout with the button below."), Modifier.fillParentMaxHeight(0.8f)) {
+                    PrimaryButton(tr("Новая выплата", "New payout"), icon = Icons.Rounded.Add, onClick = onNew)
+                }
+                else Tumbleweed(tr("Архив пуст", "The archive is empty"), tr("Завершённые выплаты появятся здесь.", "Finished payouts will appear here."), Modifier.fillParentMaxHeight(0.8f))
             }
             items(rows ?: emptyList()) { r -> PayoutRow(r) { onOpen(r) } }
             if (kind == "active" && (all?.size ?: 0) > ACTIVE_LIMIT) item {

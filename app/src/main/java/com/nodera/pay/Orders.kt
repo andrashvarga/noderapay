@@ -87,9 +87,9 @@ private fun OrdersPage(kind: String, currency: String, refreshKey: Int, onOpen: 
             if (rows != null && rows.isEmpty()) item {
                 // Перекати-поле только на вкладке «Активные» и только когда активных заявок действительно нет.
                 when (kind) {
-                    "archive" -> Card { Muted(tr("Архив пуст.", "Archive is empty.")) }
-                    "active" -> { if (Store.activeOrders == 0) Tumbleweed(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section.")) }
-                    else -> Card { Muted(tr("Диспутов нет.", "No disputes.")) }
+                    "archive" -> Tumbleweed(tr("Архив пуст", "The archive is empty"), tr("Завершённые заявки появятся здесь.", "Finished orders will appear here."), Modifier.fillParentMaxHeight(0.8f))
+                    "active" -> { if (Store.activeOrders == 0) Tumbleweed(tr("Активных заявок нет", "No active orders"), tr("Пусто, как в пустыне. Создайте заявку в разделе QR.", "Empty as a desert. Create an order in the QR section."), Modifier.fillParentMaxHeight(0.8f)) }
+                    else -> Tumbleweed(tr("Диспутов нет", "No disputes"), tr("Спорные заявки появятся здесь.", "Disputed orders will appear here."), Modifier.fillParentMaxHeight(0.8f))
                 }
             }
             items(rows ?: emptyList()) { r ->
