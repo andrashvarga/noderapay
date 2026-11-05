@@ -75,7 +75,7 @@ class WatchService : Service() {
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1, n)
         if (job?.isActive != true) job = scope.launch {
             while (isActive) {
-                if (Store.connected && Store.notify) { runCatching { poll(applicationContext) }; runCatching { checkUpdate(applicationContext) } }
+                if (Store.connected) { if (Store.notify) runCatching { poll(applicationContext) }; runCatching { checkUpdate(applicationContext) } }
                 else { stopSelf(); break }
                 delay(POLL_MS)
             }

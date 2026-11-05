@@ -27,7 +27,9 @@ object Store {
 
     var apiKey by mutableStateOf("")
     var apiSecret by mutableStateOf("")
-    var baseUrl by mutableStateOf("")
+    /** Адрес сервера зашит в приложение: пользователь его не вводит и не видит. */
+    const val SERVER_URL = "https://my.noderapay.com"
+    val baseUrl: String get() = SERVER_URL
     var theme by mutableStateOf("system") // system | light | dark
     var lang by mutableStateOf("ru")      // ru | en
     var logoMode by mutableStateOf("nodera") // nodera | none | custom
@@ -45,7 +47,7 @@ object Store {
     var notify by mutableStateOf(true)
     var onboardingSeen by mutableStateOf(false)
 
-    val connected get() = apiKey.isNotBlank() && apiSecret.isNotBlank() && baseUrl.isNotBlank()
+    val connected get() = apiKey.isNotBlank() && apiSecret.isNotBlank()
     val isTest get() = apiKey.startsWith("ak_test_") || testMerchant
 
     fun init(ctx: Context) {
@@ -54,7 +56,6 @@ object Store {
         secure = openSecure()
         apiKey = secure.getString("api_key", "") ?: ""
         apiSecret = secure.getString("api_secret", "") ?: ""
-        baseUrl = plain.getString("base_url", "") ?: ""
         theme = plain.getString("theme", "system") ?: "system"
         lang = plain.getString("lang", if (java.util.Locale.getDefault().language == "ru") "ru" else "en") ?: "ru"
         logoMode = plain.getString("logo_mode", "nodera") ?: "nodera"
@@ -84,8 +85,7 @@ object Store {
     fun saveKeys(url: String, key: String, secret: String, test: Boolean = false) {
         testMerchant = test; plain.edit().putBoolean("test_merchant", test).apply()
         secure.edit().putString("api_key", key).putString("api_secret", secret).apply()
-        plain.edit().putString("base_url", url).apply()
-        apiKey = key; apiSecret = secret; baseUrl = url
+                apiKey = key; apiSecret = secret
     }
 
     /** Ключ можно только удалить и ввести новый. */

@@ -265,7 +265,7 @@ fun <T> rememberLoader(key: Any? = null, fetch: suspend () -> T): Loader<T> {
 fun fixUrl(u: String?): String? {
     if (u.isNullOrBlank() || u == "null") return null
     val i = u.indexOf("/assets/")
-    return if (i >= 0 && Store.baseUrl.isNotBlank()) Store.baseUrl.trimEnd('/') + u.substring(i) else u
+    return if (i >= 0 && true) Store.baseUrl.trimEnd('/') + u.substring(i) else u
 }
 
 /** Название «NODERA» и «PAY» одним шрифтом бренда (Lexend Exa), как в логотипе. */

@@ -1,5 +1,18 @@
 [
  {
+  "code": 9,
+  "name": "1.8.0",
+  "date": "2026-11-05",
+  "ru": [
+   "Адрес сервера (my.noderapay.com) встроен в приложение: его не нужно вводить и он не показывается в настройках",
+   "Пуш «вышла новая версия» приходит на телефон, пока приложение подключено"
+  ],
+  "en": [
+   "Server address (my.noderapay.com) is built in: no need to enter it and it is not shown in settings",
+   "A “new version available” push arrives on the phone while the app is connected"
+  ]
+ },
+ {
   "code": 8,
   "name": "1.7.0",
   "date": "2026-11-05",

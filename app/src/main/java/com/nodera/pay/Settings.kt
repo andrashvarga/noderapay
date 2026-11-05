@@ -67,8 +67,6 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             Muted("api_key"); Text(maskKey(Store.apiKey), fontFamily = FontFamily.Monospace, color = pal.text)
             Spacer(Modifier.height(6.dp))
             Muted("api_secret_key"); Text(maskKey(Store.apiSecret), fontFamily = FontFamily.Monospace, color = pal.text)
-            Spacer(Modifier.height(6.dp))
-            Muted(tr("Сервер", "Server")); Text(Store.baseUrl, color = pal.text, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
             Muted(tr("Ключи хранятся зашифрованно (Android Keystore) и не показываются полностью. Их можно только удалить и ввести новые.", "Keys are stored encrypted (Android Keystore) and never shown in full. You can only delete them and enter new ones."))
             Spacer(Modifier.height(10.dp))
