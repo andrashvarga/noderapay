@@ -33,7 +33,7 @@ private const val POLL_MS = 30_000L
 fun ensureChannels(ctx: Context) {
     if (Build.VERSION.SDK_INT < 26) return
     val nm = ctx.getSystemService(NotificationManager::class.java)
-    nm.createNotificationChannel(NotificationChannel(CH_EVENTS, tr("Статусы заявок, выводов и диспутов", "Order, withdrawal and dispute updates"), NotificationManager.IMPORTANCE_HIGH))
+    nm.createNotificationChannel(NotificationChannel(CH_EVENTS, tr("Статусы заявок, выплат, выводов и диспутов", "Order, payout, withdrawal and dispute updates"), NotificationManager.IMPORTANCE_HIGH))
     nm.createNotificationChannel(NotificationChannel(CH_WATCH, tr("Работа в фоне", "Background work"), NotificationManager.IMPORTANCE_MIN))
 }
 
@@ -62,6 +62,7 @@ private fun push(ctx: Context, id: Int, title: String, text: String) {
 class WatchService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
+    private var lastUpdateCheck = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -69,12 +70,12 @@ class WatchService : Service() {
         ensureChannels(this)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n: Notification = NotificationCompat.Builder(this, CH_WATCH).setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("Nodera Pay").setContentText(tr("Слежу за статусами заявок и выводов", "Watching order and withdrawal statuses"))
+            .setContentTitle("Nodera Pay").setContentText(tr("Слежу за статусами заявок, выплат и выводов", "Watching order, payout and withdrawal statuses"))
             .setContentIntent(open).setOngoing(true).setPriority(NotificationCompat.PRIORITY_MIN).build()
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1, n)
         if (job?.isActive != true) job = scope.launch {
             while (isActive) {
-                if (Store.connected && Store.notify) runCatching { poll(applicationContext) }
+                if (Store.connected) { if (Store.notify) runCatching { poll(applicationContext) }; runCatching { checkUpdate(applicationContext) } }
                 else { stopSelf(); break }
                 delay(POLL_MS)
             }
@@ -83,6 +84,18 @@ class WatchService : Service() {
     }
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
+
+    /** Раз в полчаса смотрим релиз; о каждой новой версии сообщаем один раз. */
+    private suspend fun checkUpdate(ctx: Context) {
+        if (System.currentTimeMillis() - lastUpdateCheck < 30 * 60_000L) return
+        lastUpdateCheck = System.currentTimeMillis()
+        if (!Updater.check(ctx)) return
+        val n = Updater.latest() ?: return
+        val prefs = ctx.getSharedPreferences("nodera_pay_update", Context.MODE_PRIVATE)
+        if (prefs.getInt("update_notified", 0) >= n.code) return
+        prefs.edit().putInt("update_notified", n.code).apply()
+        Notices.updateText(n.name).let { push(ctx, 90_000, it.first, it.second) }
+    }
 
     private suspend fun poll(ctx: Context) {
         val prefs = Store.watchPrefs()
@@ -94,15 +107,25 @@ class WatchService : Service() {
             val was = old[key] as? String
             if (!first && was != null && was != status) onChange(status)
         }
-        val cur = runCatching { Store.apiKey; Api.balance().optString("currency") }.getOrDefault("")
         for (t in Api.allTransactions().getJSONArray("rows").objects()) {
             val id = t.optInt("id")
             seen("tx:$id", t.optString("status")) { st ->
-                val amount = money(t.optDouble("amount"), t.optString("currency", cur))
+                val amount = money(t.optDouble("amount"), curOf(t))
                 when (st) {
                     "completed" -> push(ctx, 10_000 + id, tr("Заявка #$id оплачена", "Order #$id paid"), tr("Сумма $amount. Оплата подтверждена.", "Amount $amount. Payment confirmed."))
                     "canceled", "expired", "failed" -> push(ctx, 10_000 + id, tr("Заявка #$id отменена", "Order #$id canceled"),
                         (cancelText(t.optString("cancelReason")) ?: tr("Заявка закрыта без оплаты.", "The order was closed unpaid.")) + " $amount")
+                }
+            }
+        }
+        for (p in Api.payoutRows("all")) {
+            val id = p.optInt("id")
+            seen("po:$id", p.optString("status")) { st ->
+                val amount = money(p.optDouble("amount"), curOf(p, true))
+                when (st) {
+                    "Processing" -> push(ctx, 50_000 + id, tr("Выплата #$id в работе", "Payout #$id in progress"), tr("Сумма $amount. Исполнитель взял выплату.", "Amount $amount. A provider took the payout."))
+                    "Success" -> push(ctx, 50_000 + id, tr("Выплата #$id выполнена", "Payout #$id completed"), tr("Сумма $amount переведена получателю.", "Amount $amount was sent to the recipient."))
+                    "Canceled" -> push(ctx, 50_000 + id, tr("Выплата #$id отменена", "Payout #$id canceled"), (p.optString("comment").takeIf { it.isNotBlank() && it != "null" } ?: tr("Выплата закрыта без перевода.", "The payout was closed without a transfer.")) + " $amount")
                 }
             }
         }

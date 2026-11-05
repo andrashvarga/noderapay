@@ -33,7 +33,6 @@ private fun normalizeUrl(raw: String): String? {
 @Composable
 fun ConnectScreen(onConnected: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var url by remember { mutableStateOf(Store.baseUrl) }
     var key by remember { mutableStateOf("") }
     var secret by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -41,19 +40,16 @@ fun ConnectScreen(onConnected: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Spacer(Modifier.height(8.dp))
-        AppLogo(56)
         BrandTitle(20)
         Muted(tr("Терминал приёма платежей. Введите ключи из личного кабинета мерчанта Nodera (раздел «Ключи API») — без них приложение не работает.",
             "Payment terminal. Enter the keys from your Nodera merchant account (“API keys”) — the app does not work without them."))
-        Field(url, { url = it }, tr("Адрес сервера Nodera", "Nodera server address"), keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
         Field(key, { key = it.trim() }, "api_key", keyboard = KeyboardOptions(keyboardType = KeyboardType.Password))
         Field(secret, { secret = it.trim() }, "api_secret_key", keyboard = KeyboardOptions(keyboardType = KeyboardType.Password))
         Muted(tr("Ключи хранятся на устройстве в зашифрованном виде и после сохранения показываются только частично.", "Keys are stored encrypted on the device and shown only partially after saving."))
         ErrorNote(error)
-        PrimaryButton(tr("Подключить", "Connect"), icon = Icons.Rounded.Key, enabled = url.isNotBlank() && key.length > 8 && secret.length > 8, loading = busy) {
-            val base = normalizeUrl(url)
+        PrimaryButton(tr("Подключить", "Connect"), icon = Icons.Rounded.Key, enabled = key.length > 8 && secret.length > 8, loading = busy) {
+            val base = Store.SERVER_URL
             when {
-                base == null -> error = tr("Укажите адрес с https:// (http допустим только в локальной сети)", "Use an https:// address (http only on a local network)")
                 !key.startsWith("ak_") -> error = tr("api_key начинается с ak_", "api_key starts with ak_")
                 !secret.startsWith("sk_") -> error = tr("api_secret_key начинается с sk_", "api_secret_key starts with sk_")
                 key.removePrefix("ak_").substringBefore('_') != secret.removePrefix("sk_").substringBefore('_') -> error = tr("Ключи из разных режимов (test/live)", "Keys are from different modes (test/live)")

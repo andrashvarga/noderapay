@@ -43,11 +43,12 @@ import kotlinx.coroutines.launch
 private class Slide(val icon: ImageVector, val ru: String, val en: String, val ruText: String, val enText: String, val target: Int, val mock: Int)
 
 private val slides = listOf(
-    Slide(Icons.Rounded.Key, "Подключите ключи", "Connect your keys", "Введите адрес сервера, api_key и api_secret_key из кабинета Nodera. Без них терминал не работает.", "Enter the server address, api_key and api_secret_key from your Nodera account. The terminal does not work without them.", 3, 0),
-    Slide(Icons.Rounded.QrCode2, "QR и ссылка в одном", "QR and link in one", "Введите сумму, отметьте методы: они сами скрываются, если сумма вне лимитов. Заявка покажет QR с логотипом, таймер и кнопку «Поделиться ссылкой».", "Enter the amount and tick the methods: they hide themselves if the amount is outside their limits. The order shows a QR with a logo, a timer and a “Share link” button.", 2, 1),
-    Slide(Icons.Rounded.Storefront, "Услуги и товары", "Services", "Сохраните услуги с готовой суммой, например «Ремонт ПК — 1000». Покажите карточку клиенту и создайте заявку.", "Save services with preset prices, e.g. “PC repair — 1000”. Show the card to the customer and create an order.", 2, 3),
-    Slide(Icons.Rounded.Receipt, "Заявки и диспуты", "Orders and disputes", "Листайте вкладки свайпом, тяните вниз для обновления: статусы обновляются сами. Если клиент оплатил, а платёж не подтверждён — откройте диспут и приложите чек.", "Swipe between tabs and pull down to refresh: statuses update by themselves. If the customer paid but it is not confirmed — open a dispute and attach the receipt.", 0, 4),
-    Slide(Icons.Rounded.AccountBalanceWallet, "Вывод в USDT", "USDT withdrawals", "Сохраните кошелёк TRC-20 или BEP-20 и выводите баланс целиком или частью.", "Save a TRC-20 or BEP-20 wallet and withdraw all of your balance or part of it.", 1, 5),
+    Slide(Icons.Rounded.Key, "Подключите ключи", "Connect your keys", "Введите адрес сервера, api_key и api_secret_key из кабинета Nodera. Без них терминал не работает.", "Enter the server address, api_key and api_secret_key from your Nodera account. The terminal does not work without them.", 4, 0),
+    Slide(Icons.Rounded.QrCode2, "QR и ссылка в одном", "QR and link in one", "Введите сумму, отметьте методы: они сами скрываются, если сумма вне лимитов. Заявка покажет QR с логотипом, таймер и кнопку «Поделиться ссылкой».", "Enter the amount and tick the methods: they hide themselves if the amount is outside their limits. The order shows a QR with a logo, a timer and a “Share link” button.", 3, 1),
+    Slide(Icons.Rounded.Storefront, "Услуги и товары", "Services", "Сохраните услуги с готовой суммой, например «Ремонт ПК — 1000». Покажите карточку клиенту и создайте заявку.", "Save services with preset prices, e.g. “PC repair — 1000”. Show the card to the customer and create an order.", 3, 3),
+    Slide(Icons.Rounded.Receipt, "Заявки и диспуты", "Orders and disputes", "Листайте вкладки свайпом, тяните вниз для обновления: статусы обновляются сами. Если клиент оплатил, а платёж не подтверждён — откройте диспут и приложите чек. Сверху видно не больше трёх активных заявок, остальные ждут в архиве; из архива можно выгрузить CSV.", "Swipe between tabs and pull down to refresh: statuses update by themselves. If the customer paid but it is not confirmed — open a dispute and attach the receipt. At most three active orders show on top, the rest wait in the archive; the archive can be exported to CSV.", 0, 4),
+    Slide(Icons.Rounded.NorthEast, "Выплаты клиентам", "Payouts to customers", "Нажмите «Новая выплата», введите сумму, карту или телефон, банк и ФИО получателя и подтвердите. Карточка окрашена по статусу: в очереди, выполняется, выплачено, отменена. Пока выплата в очереди, её можно отменить. Активные и архив в одном разделе, из архива выгружается CSV.", "Tap “New payout”, enter the amount, card or phone, bank and recipient name, then confirm. The card is coloured by status: queued, in progress, paid out, canceled. A queued payout can be canceled. Active and archive live in one section; the archive exports to CSV.", 1, 6),
+    Slide(Icons.Rounded.AccountBalanceWallet, "Вывод в USDT", "USDT withdrawals", "Сохраните кошелёк TRC-20 или BEP-20 и выводите баланс целиком или частью.", "Save a TRC-20 or BEP-20 wallet and withdraw all of your balance or part of it.", 2, 5),
 )
 
 private const val SLIDE_MS = 5500
@@ -81,7 +82,7 @@ fun OnboardingDialog(onClose: () -> Unit) {
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AppLogo(28)
+                    BrandTitle(14)
                     Spacer(Modifier.weight(1f))
                     Box(Modifier.size(40.dp).clip(CircleShape).background(pal.surface2).pointerInput(Unit) { detectTapGestures { onClose() } }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Close, null, tint = pal.text)
@@ -121,15 +122,15 @@ private fun SlideView(s: Slide, active: Boolean, index: Int) {
     }
 }
 
-private val navIcons = listOf(Icons.Rounded.Receipt, Icons.Rounded.AccountBalanceWallet, Icons.Rounded.QrCode2, Icons.Rounded.Settings)
+private val navIcons = listOf(Icons.Rounded.Receipt, Icons.Rounded.NorthEast, Icons.Rounded.AccountBalanceWallet, Icons.Rounded.QrCode2, Icons.Rounded.Settings)
 
 @Composable
 private fun MockPhone(index: Int, target: Int, p: Float) {
     val W = 232; val H = 300
     // Палец: 0–.2 подъезжает к вкладке, .2–.35 нажатие, .35–.6 едет к элементу на экране, .6–.75 второе нажатие.
-    val navX = 29f + 58f * target - 11f
+    val navX = 5f + (W - 10f) / navIcons.size * (target + 0.5f) - 11f
     val navY = H - 30f
-    val inX = 116f; val inY = when (index) { 0 -> 146f; 1 -> 190f; 2 -> 180f; 3 -> 176f; 4 -> 112f; else -> 190f }
+    val inX = 116f; val inY = when (index) { 0 -> 146f; 1 -> 190f; 2 -> 180f; 3 -> 176f; 4 -> 112f; 6 -> 150f; else -> 190f }
     val fx = when { p < 0.2f -> lerp(190f, navX, p / 0.2f); p < 0.35f -> navX; p < 0.6f -> lerp(navX, inX, (p - 0.35f) / 0.25f); else -> inX }
     val fy = when { p < 0.2f -> lerp(H + 40f, navY, p / 0.2f); p < 0.35f -> navY; p < 0.6f -> lerp(navY, inY, (p - 0.35f) / 0.25f); else -> inY }
     val tap1 = if (p in 0.2f..0.35f) 1f - kotlin.math.abs((p - 0.275f) / 0.075f) else 0f
@@ -139,7 +140,7 @@ private fun MockPhone(index: Int, target: Int, p: Float) {
     Box(Modifier.size(W.dp, H.dp).shadow(18.dp, RoundedCornerShape(34.dp), ambientColor = Color.Black.copy(alpha = .25f), spotColor = Color.Black.copy(alpha = .4f)).background(Color(0xFF14161E), RoundedCornerShape(34.dp)).padding(5.dp).clip(RoundedCornerShape(29.dp)).background(pal.bg)) {
         // Шапка.
         Row(Modifier.fillMaxWidth().padding(14.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo_mark), null, Modifier.size(20.dp))
+            BrandTitle(8)
             Spacer(Modifier.width(6.dp))
             Box(Modifier.height(8.dp).width(60.dp).clip(CircleShape).background(pal.muted.copy(alpha = .35f)))
         }
@@ -229,6 +230,13 @@ private fun MockContent(index: Int, p: Float, done: Float) {
                         Box(Modifier.clip(RoundedCornerShape(50)).background((if (paid) Ok else Warn).copy(alpha = .3f)).padding(horizontal = 7.dp, vertical = 2.dp)) { Box(Modifier.size(width = 22.dp, height = 5.dp).clip(CircleShape).background(if (paid) Ok else Warn)) }
                         if (!paid) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(20.dp).clip(CircleShape).background(Bad.copy(alpha = if (i == 1 && done > 0.4f) .9f else .55f)), contentAlignment = Alignment.Center) { Icon(if (i == 1) Icons.Rounded.Close else Icons.Rounded.AttachFile, null, tint = Color.White, modifier = Modifier.size(13.dp)) } }
                     }
+                }
+            }
+            6 -> { // Выплата: карточка меняет цвет по статусу.
+                val col = if (done > 0.5f) Ok else Accent
+                repeat(2) { Box(Modifier.fillMaxWidth().height(24.dp).clip(RoundedCornerShape(9.dp)).background(pal.surface2)) }
+                Row(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(12.dp)).background(col.copy(alpha = .18f)).border(1.5.dp, col.copy(alpha = .7f), RoundedCornerShape(12.dp)).padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (done > 0.5f) Icons.Rounded.CheckCircle else Icons.Rounded.NorthEast, null, tint = col, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Bar(50); Spacer(Modifier.weight(1f)); Bar(26, 9, col.copy(alpha = .8f))
                 }
             }
             else -> { // Вывод: кошелек, сумма растет, стрелка.

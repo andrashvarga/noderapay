@@ -1,0 +1,68 @@
+[
+ {
+  "code": 4,
+  "name": "1.3.0",
+  "date": "2026-11-05",
+  "ru": [
+   "Шуточные плашки о связи и ошибках: пропал и вернулся интернет, сервер, ключи, лимиты, сбои загрузки и сохранения",
+   "Уведомление и плашка о новой версии: три варианта текста, по нажатию открывается обновление"
+  ],
+  "en": [
+   "Playful banners for connection and errors: network lost and back, server, keys, limits, load and save failures",
+   "New-version notification and banner: three text variants, tap opens the update"
+  ]
+ },
+ {
+  "code": 3,
+  "name": "1.2.0",
+  "date": "2026-11-04",
+  "ru": [
+   "Проверка обновлений: автоматически и кнопкой в настройках",
+   "Окно «Доступно обновление» при запуске и уведомление о новой версии",
+   "Установка новой версии прямо из приложения, поверх старой",
+   "История изменений в настройках",
+   "Уведомления по выплатам: в работе, выполнена, отменена"
+  ],
+  "en": [
+   "Update check: automatic and by a button in settings",
+   "“Update available” prompt on launch and a notification about a new version",
+   "Install the new version from the app, on top of the old one",
+   "Changelog in settings",
+   "Payout notifications: in progress, completed, canceled"
+  ]
+ },
+ {
+  "code": 2,
+  "name": "1.1.0",
+  "date": "2026-11-04",
+  "ru": [
+   "Раздел «Выплаты»: создание, активные и архив, цвет и обводка по статусу",
+   "Плашка и значок «активная заявка или выплата»",
+   "Не больше трёх активных заявок и выплат сверху",
+   "Выгрузка CSV из архива заявок и выплат",
+   "Валюта фиатная по гео кабинета вместо USDT",
+   "Логотип только «Noros Pay», подсказка размера своего логотипа",
+   "Перекати-поле только на пустой вкладке «Активные»"
+  ],
+  "en": [
+   "Payouts section: create, active and archive, colour and outline by status",
+   "“Active order or payout” banner and badge",
+   "At most three active orders and payouts on top",
+   "CSV export from the orders and payouts archive",
+   "Fiat currency by account geo instead of USDT",
+   "Logo is just “Noros Pay”, size hint for your own logo",
+   "Tumbleweed only on an empty “Active” tab"
+  ]
+ },
+ {
+  "code": 1,
+  "name": "1.0.0",
+  "date": "2026-11-03",
+  "ru": [
+   "Первая версия: QR и ссылка на оплату, заявки, диспуты, услуги, темы, уведомления"
+  ],
+  "en": [
+   "First version: QR and payment link, orders, disputes, services, themes, notifications"
+  ]
+ }
+]
