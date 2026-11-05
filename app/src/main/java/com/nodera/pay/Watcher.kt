@@ -47,11 +47,11 @@ fun syncWatcher(ctx: Context) {
     if (Store.connected && Store.notify) runCatching { ContextCompat.startForegroundService(ctx, i) } else ctx.stopService(i)
 }
 
-internal fun push(ctx: Context, id: Int, title: String, text: String, channel: String = CH_EVENTS) {
+internal fun push(ctx: Context, id: Int, title: String, text: String, channel: String = CH_EVENTS, image: android.graphics.Bitmap? = null) {
     if (!canNotify(ctx)) return
     val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     val n = NotificationCompat.Builder(ctx, channel).setSmallIcon(R.drawable.ic_stat).setContentTitle(title).setContentText(text)
-        .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).build()
+        .setStyle(if (image != null) NotificationCompat.BigPictureStyle().bigPicture(image).setSummaryText(text) else NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).build()
     runCatching { NotificationManagerCompat.from(ctx).notify(id, n) }
 }
 
@@ -77,7 +77,7 @@ class WatchService : Service() {
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1, n)
         if (job?.isActive != true) job = scope.launch {
             while (isActive) {
-                if (Store.connected) { if (Store.notify) runCatching { poll(applicationContext) }; runCatching { checkUpdate(applicationContext) } }
+                if (Store.connected) { runCatching { Push.ping(applicationContext) }; if (Store.connected && Store.notify) runCatching { poll(applicationContext) }; runCatching { checkUpdate(applicationContext) } }
                 else { stopSelf(); break }
                 delay(POLL_MS)
             }

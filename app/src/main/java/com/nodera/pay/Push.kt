@@ -1,6 +1,10 @@
 package com.nodera.pay
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.net.HttpURLConnection
+import java.net.URL
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -38,6 +42,30 @@ object Push {
         scope.launch { val t = token() ?: return@launch; runCatching { Api.unregisterDevice(t, url, key, secret) } }
     }
 
+    /** Раз в 30 секунд из фоновой службы и при запуске: отмечает «в сети»; если сессию завершили в админке, стирает ключи. */
+    suspend fun ping(ctx: Context) {
+        if (!Store.connected) return
+        val t = token() ?: return
+        val revoked = runCatching { Api.ping(t, version(ctx)) }.getOrDefault(false)
+        if (revoked) endSession(ctx)
+    }
+
+    /** Сессию завершил администратор: ключи с устройства стираются, приложение возвращается на экран подключения. */
+    fun endSession(ctx: Context) {
+        Store.deleteKeys()
+        syncWatcher(ctx)
+    }
+
+    /** Картинка из уведомления (Firebase присылает её адрес); null, если не скачалась. */
+    internal fun bitmap(url: String?): Bitmap? {
+        if (url.isNullOrBlank() || !url.startsWith("https://")) return null
+        return runCatching {
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.connectTimeout = 8000; c.readTimeout = 8000
+            c.inputStream.use { BitmapFactory.decodeStream(it) }
+        }.getOrNull()
+    }
+
     fun refresh(ctx: Context) { scope.launch { sync(ctx) } }
 }
 
@@ -50,9 +78,11 @@ class PushService : FirebaseMessagingService() {
     /** В фоне уведомление показывает сама система; здесь оно приходит, пока приложение открыто. */
     override fun onMessageReceived(message: RemoteMessage) {
         Store.init(applicationContext)
+        if (message.data["type"] == "logout") { Push.endSession(applicationContext); return }
         val title = message.notification?.title ?: message.data["title"] ?: return
         val text = message.notification?.body ?: message.data["body"].orEmpty()
         ensureChannels(applicationContext)
-        push(applicationContext, 91_000 + (message.data["id"]?.toIntOrNull() ?: (System.currentTimeMillis() % 1000).toInt()), title, text, CH_BROADCAST)
+        val image = Push.bitmap(message.notification?.imageUrl?.toString() ?: message.data["image"])
+        push(applicationContext, 91_000 + (message.data["id"]?.toIntOrNull() ?: (System.currentTimeMillis() % 1000).toInt()), title, text, CH_BROADCAST, image)
     }
 }
