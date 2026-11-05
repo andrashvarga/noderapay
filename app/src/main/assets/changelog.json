@@ -1,5 +1,18 @@
 [
  {
+  "code": 11,
+  "name": "1.8.2",
+  "date": "2026-11-05",
+  "ru": [
+   "Пустые вкладки: пустыня одной высоты на всех страницах, вплотную к нижней панели, больше не заходит в соседние вкладки",
+   "Пустая вкладка «Активные выплаты»: кнопка «Новая выплата» по центру"
+  ],
+  "en": [
+   "Empty tabs: the desert has the same height on all pages, sits flush with the bottom bar and no longer spills into neighbouring tabs",
+   "Empty “Active payouts” tab: centered “New payout” button"
+  ]
+ },
+ {
   "code": 10,
   "name": "1.8.1",
   "date": "2026-11-05",

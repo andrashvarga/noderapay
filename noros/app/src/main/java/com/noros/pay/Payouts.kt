@@ -79,18 +79,21 @@ private fun PayoutsPage(kind: String, refreshKey: Int, onNew: () -> Unit, onCsv:
     PullToRefreshBox(isRefreshing = list.loading, onRefresh = { list.reload() }, modifier = Modifier.fillMaxSize()) {
         val all = list.data
         val rows = if (kind == "active") all?.take(ACTIVE_LIMIT) else all
+        val empty = rows != null && rows.isEmpty()
+        if (empty) TumbleweedScene(Modifier.align(Alignment.BottomCenter))
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-            if (kind == "active") item { PrimaryButton(tr("Новая выплата", "New payout"), icon = Icons.Rounded.Add, onClick = onNew) }
+            if (kind == "active") { if (!empty) item { PrimaryButton(tr("Новая выплата", "New payout"), icon = Icons.Rounded.Add, onClick = onNew) } }
             else item { SoftButton(tr("Выгрузить CSV", "Export CSV"), Modifier.fillMaxWidth(), Icons.Rounded.Download, onClick = onCsv) }
             if (list.error != null) item { ErrorNote(list.error) }
-            if (rows != null && rows.isEmpty()) item {
-                if (kind == "active") Tumbleweed(tr("Активных выплат нет", "No active payouts"), tr("Создайте выплату кнопкой выше.", "Create a payout with the button above."))
-                else Card { Muted(tr("В архиве пока пусто.", "The archive is empty.")) }
-            }
             items(rows ?: emptyList()) { r -> PayoutRow(r) { onOpen(r) } }
             if (kind == "active" && (all?.size ?: 0) > ACTIVE_LIMIT) item {
                 Muted(tr("Показаны ${ACTIVE_LIMIT} последние из ${all!!.size}. Остальные появятся в архиве, когда завершатся.", "Showing the latest $ACTIVE_LIMIT of ${all!!.size}. The rest move to the archive when finished."))
             }
+        }
+        if (empty) {
+            if (kind == "active") EmptyNote(tr("Активных выплат нет", "No active payouts"), tr("Создайте выплату кнопкой ниже.", "Create a payout with the button below."), Modifier.fillMaxSize()) {
+                PrimaryButton(tr("Новая выплата", "New payout"), icon = Icons.Rounded.Add, onClick = onNew)
+            } else EmptyNote(tr("Архив пуст", "The archive is empty"), tr("Завершённые выплаты появятся здесь.", "Finished payouts will appear here."), Modifier.fillMaxSize())
         }
     }
 }
