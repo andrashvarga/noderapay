@@ -214,6 +214,9 @@ object Api {
         return a
     }
 
+    /** Счётчики на вкладках «Заявки»/«Выплаты»: обновляются независимо от открытой вкладки. */
+    suspend fun refreshCounts() { runCatching { rows("active") }; runCatching { payoutRows("active") } }
+
     private val ACTIVE = setOf("created", "offer", "accepted", "proof")
 
     /** Заявки, созданные в приложении: активные обновляются запросами к Noros, закрытые берутся из памяти приложения. */

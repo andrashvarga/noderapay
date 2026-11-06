@@ -1,5 +1,16 @@
 [
  {
+  "code": 6,
+  "name": "1.3.2",
+  "date": "2026-11-06",
+  "ru": [
+   "Синие счётчики активных заявок и выплат на нижних вкладках: обновляются сами, даже если вкладка не открыта"
+  ],
+  "en": [
+   "Blue counters of active orders and payouts on the bottom tabs: they refresh on their own, even when the tab is not open"
+  ]
+ },
+ {
   "code": 5,
   "name": "1.3.1",
   "date": "2026-11-05",
