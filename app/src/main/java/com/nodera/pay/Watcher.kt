@@ -35,7 +35,7 @@ fun ensureChannels(ctx: Context) {
     if (Build.VERSION.SDK_INT < 26) return
     val nm = ctx.getSystemService(NotificationManager::class.java)
     nm.createNotificationChannel(NotificationChannel(CH_EVENTS, tr("Статусы заявок, выплат, выводов и диспутов", "Order, payout, withdrawal and dispute updates"), NotificationManager.IMPORTANCE_HIGH))
-    nm.createNotificationChannel(NotificationChannel(CH_BROADCAST, tr("Новости Nodera Pay", "Nodera Pay news"), NotificationManager.IMPORTANCE_HIGH))
+    nm.createNotificationChannel(NotificationChannel(CH_BROADCAST, tr("Новости Nodera Business", "Nodera Business news"), NotificationManager.IMPORTANCE_HIGH))
     nm.createNotificationChannel(NotificationChannel(CH_WATCH, tr("Работа в фоне", "Background work"), NotificationManager.IMPORTANCE_MIN))
 }
 
@@ -59,7 +59,7 @@ internal fun push(ctx: Context, id: Int, title: String, text: String, channel: S
  * Слежение за статусами без Firebase: служба на переднем плане раз в 30 секунд опрашивает API и сравнивает статусы
  * заявок, выводов и диспутов с запомненными. При смене статуса приходит уведомление.
  * Ограничения: нужна постоянная заметка в шторке (требование Android), а на некоторых телефонах (Xiaomi, Huawei, Samsung)
- * система может убивать фоновые службы — тогда в настройках телефона нужно отключить оптимизацию батареи для Nodera Pay.
+ * система может убивать фоновые службы — тогда в настройках телефона нужно отключить оптимизацию батареи для Nodera Business.
  */
 class WatchService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -72,7 +72,7 @@ class WatchService : Service() {
         ensureChannels(this)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n: Notification = NotificationCompat.Builder(this, CH_WATCH).setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("Nodera Pay").setContentText(tr("Слежу за статусами заявок, выплат и выводов", "Watching order, payout and withdrawal statuses"))
+            .setContentTitle("Nodera Business").setContentText(tr("Слежу за статусами заявок, выплат и выводов", "Watching order, payout and withdrawal statuses"))
             .setContentIntent(open).setOngoing(true).setPriority(NotificationCompat.PRIORITY_MIN).build()
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1, n)
         if (job?.isActive != true) job = scope.launch {

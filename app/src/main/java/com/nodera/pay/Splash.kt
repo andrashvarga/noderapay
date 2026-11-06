@@ -158,7 +158,7 @@ fun TerminalAnim(progress: Float, wave: Float, modifier: Modifier = Modifier) {
     }
 }
 
-/** Заставка при запуске: терминал «принимает» карту, под ним название Nodera Pay и «Платёжный терминал». */
+/** Заставка при запуске: терминал «принимает» карту, под ним название Nodera Business и «Платёжный терминал». */
 @Composable
 fun SplashScreen(onDone: () -> Unit) {
     val progress = remember { Animatable(0f) }
@@ -178,8 +178,8 @@ fun SplashScreen(onDone: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             Row(Modifier.alpha(appear), verticalAlignment = Alignment.CenterVertically) {
                 Image(painterResource(if (light) R.drawable.wordmark_light else R.drawable.wordmark_dark), "Nodera", Modifier.height(20.dp).width(165.dp), contentScale = ContentScale.Fit)
-                Spacer(Modifier.width(18.dp))
-                Image(painterResource(if (light) R.drawable.pay_light else R.drawable.pay_dark), "Pay", Modifier.height(18.dp).width(77.dp), contentScale = ContentScale.Fit)
+                Spacer(Modifier.width(12.dp))
+                Image(painterResource(if (light) R.drawable.business_light else R.drawable.business_dark), "Business", Modifier.height(10.dp).width(122.dp), contentScale = ContentScale.Fit)
             }
             Spacer(Modifier.height(8.dp))
             Text(tr("Платёжный терминал", "Payment terminal"), color = pal.muted, fontSize = 15.sp, letterSpacing = 1.sp, modifier = Modifier.alpha(appear))

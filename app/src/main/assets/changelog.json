@@ -1,5 +1,16 @@
 [
  {
+  "code": 15,
+  "name": "1.11.0",
+  "date": "2026-11-06",
+  "ru": [
+   "Приложение теперь называется Nodera Business"
+  ],
+  "en": [
+   "The app is now called Nodera Business"
+  ]
+ },
+ {
   "code": 14,
   "name": "1.10.1",
   "date": "2026-11-06",
