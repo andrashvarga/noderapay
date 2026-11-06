@@ -128,7 +128,7 @@ object Updater {
 
     /** Полный цикл «скачать и установить»; возвращает текст для пользователя, если нужна его помощь. */
     suspend fun update(ctx: Context): String? {
-        if (needsPermission(ctx)) { openPermission(ctx); return tr("Разрешите установку из Nodera Pay и нажмите «Обновить» ещё раз.", "Allow installs from Nodera Pay and tap “Update” again.") }
+        if (needsPermission(ctx)) { openPermission(ctx); return tr("Разрешите установку из Nodera Business и нажмите «Обновить» ещё раз.", "Allow installs from Nodera Business and tap “Update” again.") }
         installing = true
         return try { install(ctx, download(ctx)); null } catch (e: ApiException) { e.message } finally { installing = false }
     }

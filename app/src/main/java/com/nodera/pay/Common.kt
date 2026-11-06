@@ -84,7 +84,7 @@ val TelegramIcon: ImageVector by lazy {
 }
 
 /**
- * Логотип в шапке: только «Nodera Pay» (без отдельной буквы N), свой логотип или ничего.
+ * Логотип в шапке: только «Nodera Business» (без отдельной буквы N), свой логотип или ничего.
  * Свой логотип лучше всего выглядит горизонтальным PNG с прозрачным фоном, 600 × 160 px.
  */
 @Composable
@@ -127,7 +127,7 @@ fun QrWithLogo(link: String, logo: String?, bg: String?, cover: Boolean, modifie
 }
 
 fun copy(ctx: Context, text: String) {
-    (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Nodera Pay", text))
+    (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Nodera Business", text))
     Toast.makeText(ctx, tr("Скопировано", "Copied"), Toast.LENGTH_SHORT).show()
 }
 
@@ -268,14 +268,14 @@ fun fixUrl(u: String?): String? {
     return if (i >= 0 && true) Store.baseUrl.trimEnd('/') + u.substring(i) else u
 }
 
-/** Название «NODERA» и «PAY» одним шрифтом бренда (Lexend Exa), как в логотипе. */
+/** Название «NODERA» и «BUSINESS» одним шрифтом бренда (Lexend Exa), как в логотипе. BUSINESS мельче, чтобы строка помещалась в шапку. */
 @Composable
 fun BrandTitle(height: Int = 14, modifier: Modifier = Modifier) {
-    val pay = height * 0.903f
+    val biz = height * 0.5f
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Image(painterResource(if (pal.dark) R.drawable.wordmark_light else R.drawable.wordmark_dark), "Nodera", Modifier.height(height.dp).width((height * 8.26f).dp), contentScale = ContentScale.Fit)
-        Spacer(Modifier.width((height * 0.9f).dp))
-        Image(painterResource(if (pal.dark) R.drawable.pay_light else R.drawable.pay_dark), "Pay", Modifier.height(pay.dp).width((pay * 4.27f).dp), contentScale = ContentScale.Fit)
+        Spacer(Modifier.width((height * 0.6f).dp))
+        Image(painterResource(if (pal.dark) R.drawable.business_light else R.drawable.business_dark), "Business", Modifier.height(biz.dp).width((biz * 12.16f).dp), contentScale = ContentScale.Fit)
     }
 }
 

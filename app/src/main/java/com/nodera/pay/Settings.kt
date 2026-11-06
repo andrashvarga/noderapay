@@ -101,7 +101,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             PreviewRow(
                 listOf(
-                    PreviewItem("nodera", "Nodera Pay") { LogoPreview("nodera") },
+                    PreviewItem("nodera", "Nodera Business") { LogoPreview("nodera") },
                     PreviewItem("none", tr("Без логотипа", "None")) { LogoPreview("none") },
                     PreviewItem("custom", tr("Свой", "Custom")) { LogoPreview("custom") },
                 ), Store.logoMode,
@@ -146,7 +146,7 @@ fun SettingsScreen(onDisconnected: () -> Unit) {
             }
         }
 
-        Muted("Nodera Pay 1.6.0")
+        Muted("Nodera Business " + Updater.currentName(LocalContext.current))
         Spacer(Modifier.height(8.dp))
     }
 

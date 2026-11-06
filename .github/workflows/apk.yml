@@ -1,4 +1,4 @@
-# Сборка Nodera Pay. APK попадает в артефакт запуска и в релиз «latest» (прямая ссылка для установки).
+# Сборка Nodera Business. APK попадает в артефакт запуска и в релиз «latest» (прямая ссылка для установки).
 name: Build APK
 on:
   push:
@@ -45,4 +45,4 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          for i in 1 2 3; do gh release create latest out/NoderaPay.apk out/SHA256SUMS out/update.json --title "Nodera Pay (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NoderaPay.apk на телефон и откройте (разрешите установку из этого источника)." && break; sleep 10; done
+          for i in 1 2 3; do gh release create latest out/NoderaPay.apk out/SHA256SUMS out/update.json --title "Nodera Business (последняя сборка)" --notes "Сборка от ${GITHUB_SHA::7}. Установка: скачайте NoderaPay.apk на телефон и откройте (разрешите установку из этого источника)." && break; sleep 10; done

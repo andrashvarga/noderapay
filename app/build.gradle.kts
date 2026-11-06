@@ -16,8 +16,8 @@ android {
         applicationId = "com.nodera.pay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.10.1"
+        versionCode = 15
+        versionName = "1.11.0"
     }
     signingConfigs {
         if (ks.isNotEmpty()) create("release") {
