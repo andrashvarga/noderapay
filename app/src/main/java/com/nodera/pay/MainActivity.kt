@@ -67,6 +67,7 @@ private fun MainShell() {
         if (android.os.Build.VERSION.SDK_INT >= 33 && !canNotify(ctx) && Store.notify) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) else syncWatcher(ctx)
     }
     LaunchedEffect(Unit) { Push.sync(ctx); Push.ping(ctx) }
+    LaunchedEffect(Unit) { while (true) { Api.refreshCounts(); kotlinx.coroutines.delay(10_000) } }
     Scaffold(
         containerColor = pal.bg,
         topBar = {

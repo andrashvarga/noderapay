@@ -118,6 +118,9 @@ object Api {
             .sortedByDescending { it.optInt("id") }
     }
 
+    /** Счётчики на вкладках «Заявки»/«Выплаты»: обновляются независимо от открытой вкладки. */
+    suspend fun refreshCounts() { runCatching { transactions("active", 1) }; runCatching { payoutRows("active") } }
+
     private fun note(o: JSONObject): JSONObject {
         o.optJSONArray("rows")?.let { rows -> (0 until rows.length()).forEach { Store.noteFiat(rows.getJSONObject(it).optString("currency")) } }
         return o
